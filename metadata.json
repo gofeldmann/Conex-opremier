@@ -1,0 +1,6 @@
+{
+  "name": "Infos PremieRpet - Assistente Virtual Dra. Patrícia & Quiz",
+  "description": "Chatbot amigável com a Dra. Patrícia Alves, painel admin de personalização e quiz gamificado para tutores de cães e gatos da PremieRpet.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
