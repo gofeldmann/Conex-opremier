@@ -1,16 +1,19 @@
-import React, { useState } from 'react';
-import { ProductSubfamily, QuizQuestion, ProductCategory, PetType, ChatCustomization, QuizCustomization, SurveyConfig, QuizBonusConfig } from '../types';
+import React, { useState, useEffect } from 'react';
+import { ProductSubfamily, QuizQuestion, QuizTheme, ChatCustomization, QuizCustomization, SurveyConfig, QuizBonusConfig, QuizParticipation } from '../types';
 import {
   getAdminPin,
   saveAdminPin,
-  saveStoredSubfamilies,
   saveStoredQuizQuestions,
-  resetSubfamiliesToDefault,
   resetQuizQuestionsToDefault,
   saveChatCustomization,
   saveQuizCustomization,
   saveSurveyConfig,
   saveQuizBonusConfig,
+  getStoredParticipations,
+  updateParticipationStatus,
+  deleteParticipation,
+  saveStoredQuizThemes,
+  DEFAULT_QUIZ_THEMES,
 } from '../utils/storage';
 import {
   Lock,
@@ -18,26 +21,32 @@ import {
   Plus,
   Trash2,
   Edit3,
-  CheckCircle2,
   X,
   RotateCcw,
   Download,
   Upload,
   Save,
   HelpCircle,
-  Package,
   Key,
-  Layers,
   Sparkles,
   Check,
   Palette,
   MessageSquare,
-  Award,
-  Image as ImageIcon,
-  Sliders,
   Gift,
   Smile,
-  Copy
+  Copy,
+  Ticket,
+  Camera,
+  Search,
+  Eye,
+  CheckCircle2,
+  XCircle,
+  Star,
+  Clock,
+  UserCheck,
+  Heart,
+  Layers,
+  Tag
 } from 'lucide-react';
 
 interface AdminPanelProps {
@@ -45,6 +54,8 @@ interface AdminPanelProps {
   onUpdateSubfamilies: (updated: ProductSubfamily[]) => void;
   quizQuestions: QuizQuestion[];
   onUpdateQuizQuestions: (updated: QuizQuestion[]) => void;
+  quizThemes?: QuizTheme[];
+  onUpdateQuizThemes?: (updated: QuizTheme[]) => void;
   chatCustomization: ChatCustomization;
   onUpdateChatCustomization: (updated: ChatCustomization) => void;
   quizCustomization: QuizCustomization;
@@ -56,10 +67,10 @@ interface AdminPanelProps {
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
-  subfamilies,
-  onUpdateSubfamilies,
   quizQuestions,
   onUpdateQuizQuestions,
+  quizThemes = DEFAULT_QUIZ_THEMES,
+  onUpdateQuizThemes = (_updated: QuizTheme[]) => {},
   chatCustomization,
   onUpdateChatCustomization,
   quizCustomization,
@@ -72,8 +83,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [pinInput, setPinInput] = useState<string>('');
   const [pinError, setPinError] = useState<string>('');
-  const [activeAdminTab, setActiveAdminTab] = useState<'customization' | 'quiz' | 'products' | 'settings'>('customization');
-  const [customSubTab, setCustomSubTab] = useState<'chat' | 'quiz'>('chat');
+  const [activeAdminTab, setActiveAdminTab] = useState<'quiz' | 'customization' | 'participations' | 'settings'>('participations');
+  const [customSubTab, setCustomSubTab] = useState<'chat' | 'quiz'>('quiz');
 
   // Change PIN state
   const [newPin, setNewPin] = useState<string>('');
@@ -89,14 +100,30 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   // Search filters
   const [quizSearch, setQuizSearch] = useState<string>('');
-  const [productSearch, setProductSearch] = useState<string>('');
 
   // Modals / Forms
   const [editingQuestion, setEditingQuestion] = useState<Partial<QuizQuestion> | null>(null);
   const [isQuestionModalOpen, setIsQuestionModalOpen] = useState<boolean>(false);
 
-  const [editingSubfamily, setEditingSubfamily] = useState<Partial<ProductSubfamily> | null>(null);
-  const [isSubfamilyModalOpen, setIsSubfamilyModalOpen] = useState<boolean>(false);
+  // Quiz Theme Modal State
+  const [editingTheme, setEditingTheme] = useState<Partial<QuizTheme> | null>(null);
+  const [isThemeModalOpen, setIsThemeModalOpen] = useState<boolean>(false);
+
+  // Participations State (Cupons e Momento PremieRpet)
+  const [participations, setParticipations] = useState<QuizParticipation[]>([]);
+  const [tokenSearchInput, setTokenSearchInput] = useState<string>('');
+  const [participationFilter, setParticipationFilter] = useState<'all' | 'momento' | 'active' | 'validated'>('all');
+  const [selectedPhotoModal, setSelectedPhotoModal] = useState<string | null>(null);
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
+
+  // Load participations on mount or tab focus
+  useEffect(() => {
+    setParticipations(getStoredParticipations());
+  }, [activeAdminTab]);
+
+  const refreshParticipationsList = () => {
+    setParticipations(getStoredParticipations());
+  };
 
   // Authentication Handler
   const handleLogin = (e: React.FormEvent) => {
@@ -105,6 +132,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     if (pinInput.trim() === storedPin) {
       setIsAuthenticated(true);
       setPinError('');
+      refreshParticipationsList();
     } else {
       setPinError('PIN incorreto. Tente novamente.');
     }
@@ -141,7 +169,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     reader.readAsDataURL(file);
   };
 
-  // Save Chat Customization & Survey
+  // Save Chat Customization
   const handleSaveChatCustomization = (e: React.FormEvent) => {
     e.preventDefault();
     saveChatCustomization(chatForm);
@@ -149,7 +177,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     onUpdateChatCustomization(chatForm);
     onUpdateSurveyConfig(surveyForm);
 
-    setSaveSuccessMsg('Personalização do Chat e Pesquisa salvas com sucesso!');
+    setSaveSuccessMsg('Personalização do Chat salva com sucesso!');
     setTimeout(() => setSaveSuccessMsg(''), 3000);
   };
 
@@ -161,7 +189,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     onUpdateQuizCustomization(quizForm);
     onUpdateQuizBonusConfig(quizBonusForm);
 
-    setSaveSuccessMsg('Personalização do Quiz e Bonificação salvas com sucesso!');
+    setSaveSuccessMsg('Personalização do Quiz e Bonificação de Desconto salvas com sucesso!');
     setTimeout(() => setSaveSuccessMsg(''), 3000);
   };
 
@@ -202,7 +230,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       return;
     }
 
-    // Ensure at least one option is marked correct
     const options = editingQuestion.options || [];
     const hasCorrect = options.some((opt) => opt.isCorrect);
     if (!hasCorrect) {
@@ -226,69 +253,95 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setEditingQuestion(null);
   };
 
-  // --- SUBFAMILY MANAGEMENT HANDLERS ---
-  const handleOpenAddSubfamily = () => {
-    setEditingSubfamily({
-      id: 'premier-custom-' + Date.now(),
-      name: 'PremieR ',
-      subName: 'Nova Linha de Produtos',
-      category: 'Super Premium',
-      categoryBadgeColor: 'emerald',
-      petType: 'both',
+  // --- QUIZ THEME HANDLERS ---
+  const handleOpenAddTheme = () => {
+    setEditingTheme({
+      id: '',
+      name: '',
       description: '',
-      benefits: ['Ingredientes Selecionados', 'Sabor Excepcional'],
-      image: 'https://images.unsplash.com/photo-1589924691995-400dc9ecc119?auto=format&fit=crop&q=80&w=600',
-      highlights: ['Sem Corantes', 'Alta Digestibilidade'],
-      recommendedFor: 'Cães e Gatos de todas as idades',
-      sampleQuestions: ['Quais os benefícios desta nova linha?', 'Como oferecer na transição?'],
+      icon: '📌',
     });
-    setIsSubfamilyModalOpen(true);
+    setIsThemeModalOpen(true);
   };
 
-  const handleOpenEditSubfamily = (sub: ProductSubfamily) => {
-    setEditingSubfamily(JSON.parse(JSON.stringify(sub)));
-    setIsSubfamilyModalOpen(true);
+  const handleOpenEditTheme = (theme: QuizTheme) => {
+    setEditingTheme({ ...theme });
+    setIsThemeModalOpen(true);
   };
 
-  const handleDeleteSubfamily = (id: string) => {
-    if (confirm('Tem certeza que deseja excluir esta subfamília do catálogo?')) {
-      const updated = subfamilies.filter((s) => s.id !== id);
-      onUpdateSubfamilies(updated);
-      saveStoredSubfamilies(updated);
-    }
-  };
-
-  const handleSaveSubfamily = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingSubfamily || !editingSubfamily.name?.trim()) {
-      alert('Por favor, preencha o nome da subfamília.');
+  const handleDeleteTheme = (themeId: string) => {
+    if (themeId === 'todos') {
+      alert('O tema "Todos os Temas" é padrão e não pode ser excluído.');
       return;
     }
+    if (confirm('Tem certeza que deseja excluir este tema do quiz?')) {
+      const updated = quizThemes.filter((t) => t.id !== themeId);
+      onUpdateQuizThemes(updated);
+      saveStoredQuizThemes(updated);
+    }
+  };
 
-    let updatedList: ProductSubfamily[];
-    const existingIndex = subfamilies.findIndex((s) => s.id === editingSubfamily.id);
+  const handleSaveTheme = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTheme || !editingTheme.name?.trim()) {
+      alert('Por favor, informe o nome do tema.');
+      return;
+    }
+    const themeName = editingTheme.name.trim();
+    const slugId = editingTheme.id ? editingTheme.id : themeName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '_');
+    
+    const newTheme: QuizTheme = {
+      id: slugId,
+      name: themeName,
+      description: editingTheme.description?.trim() || '',
+      icon: editingTheme.icon?.trim() || '📌',
+    };
 
-    if (existingIndex >= 0) {
-      updatedList = [...subfamilies];
-      updatedList[existingIndex] = editingSubfamily as ProductSubfamily;
+    const existsIndex = quizThemes.findIndex((t) => t.id === newTheme.id);
+    let updated: QuizTheme[];
+    if (existsIndex >= 0) {
+      updated = [...quizThemes];
+      updated[existsIndex] = newTheme;
     } else {
-      updatedList = [editingSubfamily as ProductSubfamily, ...subfamilies];
+      updated = [...quizThemes, newTheme];
     }
 
-    onUpdateSubfamilies(updatedList);
-    saveStoredSubfamilies(updatedList);
-    setIsSubfamilyModalOpen(false);
-    setEditingSubfamily(null);
+    onUpdateQuizThemes(updated);
+    saveStoredQuizThemes(updated);
+    setIsThemeModalOpen(false);
+    setEditingTheme(null);
+  };
+
+  // PARTICIPATION / TOKEN HANDLERS
+  const handleValidateToken = (id: string) => {
+    updateParticipationStatus(id, 'validated');
+    refreshParticipationsList();
+  };
+
+  const handleUndoValidation = (id: string) => {
+    updateParticipationStatus(id, 'active');
+    refreshParticipationsList();
+  };
+
+  const handleDeleteParticipationRecord = (id: string) => {
+    if (confirm('Tem certeza que deseja remover este registro de participação?')) {
+      deleteParticipation(id);
+      refreshParticipationsList();
+    }
+  };
+
+  const handleCopyToken = (tokenStr: string) => {
+    navigator.clipboard.writeText(tokenStr);
+    setCopiedToken(tokenStr);
+    setTimeout(() => setCopiedToken(null), 2000);
   };
 
   // RESET TO DEFAULT
   const handleResetDefaults = () => {
-    if (confirm('⚠️ Deseja restaurar todas as perguntas e subfamílias para os padrões de fábrica da PremieRpet? Todas as alterações personalizadas serão redefinidas.')) {
-      const defaultSub = resetSubfamiliesToDefault();
+    if (confirm('⚠️ Deseja restaurar todas as perguntas para os padrões de fábrica da PremieRpet? Todas as alterações personalizadas serão redefinidas.')) {
       const defaultQuiz = resetQuizQuestionsToDefault();
-      onUpdateSubfamilies(defaultSub);
       onUpdateQuizQuestions(defaultQuiz);
-      alert('Dados restaurados com sucesso para os padrões originais!');
+      alert('Perguntas restauradas com sucesso para os padrões originais!');
     }
   };
 
@@ -297,8 +350,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     const dataObj = {
       version: '1.0',
       exportedAt: new Date().toISOString(),
-      subfamilies,
       quizQuestions,
+      participations,
+      quizBonusConfig,
     };
     const jsonStr = JSON.stringify(dataObj, null, 2);
     const blob = new Blob([jsonStr], { type: 'application/json' });
@@ -318,10 +372,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     reader.onload = (event) => {
       try {
         const parsed = JSON.parse(event.target?.result as string);
-        if (parsed.subfamilies && Array.isArray(parsed.subfamilies)) {
-          onUpdateSubfamilies(parsed.subfamilies);
-          saveStoredSubfamilies(parsed.subfamilies);
-        }
         if (parsed.quizQuestions && Array.isArray(parsed.quizQuestions)) {
           onUpdateQuizQuestions(parsed.quizQuestions);
           saveStoredQuizQuestions(parsed.quizQuestions);
@@ -341,14 +391,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       q.category.toLowerCase().includes(quizSearch.toLowerCase())
   );
 
-  const filteredSubfamilies = subfamilies.filter(
-    (s) =>
-      s.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-      (s.subName && s.subName.toLowerCase().includes(productSearch.toLowerCase())) ||
-      s.category.toLowerCase().includes(productSearch.toLowerCase())
-  );
+  const searchedParticipation = tokenSearchInput.trim()
+    ? participations.find((p) => p.id.toLowerCase() === tokenSearchInput.trim().toLowerCase())
+    : null;
 
-  // UNAUTHENTICATED PIN SCREEN (Matches Screenshot 2)
+  const filteredParticipations = participations.filter((p) => {
+    if (participationFilter === 'momento') return p.hasMomentoPremierPhoto || Boolean(p.petPhotoUrl);
+    if (participationFilter === 'active') return p.status === 'active';
+    if (participationFilter === 'validated') return p.status === 'validated';
+    return true;
+  });
+
+  const momentoCount = participations.filter((p) => p.hasMomentoPremierPhoto || Boolean(p.petPhotoUrl)).length;
+  const activeCount = participations.filter((p) => p.status === 'active').length;
+  const validatedCount = participations.filter((p) => p.status === 'validated').length;
+
+  // UNAUTHENTICATED PIN SCREEN
   if (!isAuthenticated) {
     return (
       <div className="max-w-md mx-auto p-6 sm:p-8 my-10 bg-white rounded-[32px] shadow-xl border border-slate-100 text-left space-y-4">
@@ -358,17 +416,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
         <div>
           <h2 className="text-2xl sm:text-3xl font-black text-[#2532f5] tracking-tight">
-            Painel de conteúdo
+            Painel de Conteúdo
           </h2>
           <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium mt-1">
-            Digite a senha compartilhada para gerenciar sub-famílias, perguntas e pontuações.
+            Digite a senha para gerenciar perguntas, personalizar o quiz e validar cupons do Momento PremieRpet.
           </p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4 pt-2">
           <div>
             <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">
-              Senha
+              Senha PIN
             </label>
             <input
               type="password"
@@ -397,17 +455,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     );
   }
 
-  // AUTHENTICATED ADMIN DASHBOARD (Matches Screenshot 3)
+  // AUTHENTICATED ADMIN DASHBOARD
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
-      {/* Top Header Row (Matches Screenshot 3) */}
+      {/* Top Header Row */}
       <div className="flex items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div>
           <h2 className="text-2xl sm:text-3xl font-black text-[#2532f5] tracking-tight">
-            Painel de conteúdo
+            Painel de Conteúdo PremieRpet
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 font-semibold mt-0.5">
-            Chat e quiz Infos PremieRpet
+            Gestão de Quiz, Validação de Tokens & Momento PremieRpet
           </p>
         </div>
 
@@ -420,11 +478,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </button>
       </div>
 
-      {/* Admin Tab Switcher Pill Bar (Matches Screenshot 3) */}
+      {/* Admin Tab Switcher Pill Bar */}
       <div className="bg-[#eef2f9] rounded-full p-1.5 flex items-center gap-1 overflow-x-auto no-scrollbar shadow-2xs border border-slate-200/60">
         <button
+          onClick={() => setActiveAdminTab('participations')}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-extrabold transition shrink-0 ${
+            activeAdminTab === 'participations'
+              ? 'bg-white text-slate-900 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <Ticket className="w-4 h-4 text-[#2532f5]" />
+          Validação & Momento PremieRpet ({participations.length})
+        </button>
+
+        <button
           onClick={() => setActiveAdminTab('quiz')}
-          className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-extrabold transition shrink-0 ${
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-extrabold transition shrink-0 ${
             activeAdminTab === 'quiz'
               ? 'bg-white text-slate-900 shadow-2xs'
               : 'text-slate-600 hover:text-slate-900'
@@ -435,20 +505,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </button>
 
         <button
-          onClick={() => setActiveAdminTab('products')}
-          className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-extrabold transition shrink-0 ${
-            activeAdminTab === 'products'
-              ? 'bg-white text-slate-900 shadow-2xs'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <Package className="w-4 h-4 text-[#2532f5]" />
-          Sub-famílias ({subfamilies.length})
-        </button>
-
-        <button
           onClick={() => setActiveAdminTab('customization')}
-          className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-extrabold transition shrink-0 ${
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-extrabold transition shrink-0 ${
             activeAdminTab === 'customization'
               ? 'bg-white text-slate-900 shadow-2xs'
               : 'text-slate-600 hover:text-slate-900'
@@ -460,7 +518,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
         <button
           onClick={() => setActiveAdminTab('settings')}
-          className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-extrabold transition shrink-0 ${
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-extrabold transition shrink-0 ${
             activeAdminTab === 'settings'
               ? 'bg-white text-slate-900 shadow-2xs'
               : 'text-slate-600 hover:text-slate-900'
@@ -471,7 +529,378 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </button>
       </div>
 
-      {/* TAB 0: PERSONALIZAÇÃO DE CONTEÚDO */}
+      {saveSuccessMsg && (
+        <div className="bg-emerald-50 text-emerald-900 border border-emerald-200 p-3.5 rounded-2xl text-xs font-bold flex items-center gap-2 animate-fadeIn">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span>{saveSuccessMsg}</span>
+        </div>
+      )}
+
+      {/* TAB 0: VALIDAÇÃO DE CUPONS E MOMENTO PREMIERPET */}
+      {activeAdminTab === 'participations' && (
+        <div className="space-y-6">
+          {/* Quick Token Search / Validator Box */}
+          <div className="bg-gradient-to-r from-blue-900 via-[#2532f5] to-blue-950 text-white p-6 rounded-3xl shadow-lg border border-blue-300 space-y-4">
+            <div className="flex items-center gap-2.5">
+              <Ticket className="w-6 h-6 text-amber-300 animate-pulse" />
+              <div>
+                <h3 className="font-extrabold text-lg text-white">
+                  Validação Rápida de Token de Cupom
+                </h3>
+                <p className="text-xs text-blue-100">
+                  Informe o código/token gerado pelo tutor (Ex: <strong className="text-amber-300 font-mono">PMTR-XXXXXX</strong>) para verificar a autenticidade e validar o resgate.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center gap-2">
+              <div className="relative flex-1 w-full">
+                <Search className="w-4 h-4 text-slate-400 absolute left-4 top-3.5" />
+                <input
+                  type="text"
+                  placeholder="Digite o Token (Ex: PMTR-8F92AK)..."
+                  value={tokenSearchInput}
+                  onChange={(e) => setTokenSearchInput(e.target.value.toUpperCase())}
+                  className="w-full pl-10 pr-4 py-3 bg-white text-slate-900 font-mono font-bold text-sm rounded-2xl border border-blue-200 outline-none uppercase placeholder:font-sans placeholder:text-slate-400 placeholder:normal-case shadow-inner"
+                />
+                {tokenSearchInput && (
+                  <button
+                    onClick={() => setTokenSearchInput('')}
+                    className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Token Result Card */}
+            {tokenSearchInput.trim() && (
+              <div className="bg-white text-slate-900 p-5 rounded-2xl shadow-md border-2 border-amber-300 space-y-3 animate-fadeIn">
+                {searchedParticipation ? (
+                  <div className="space-y-3">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                          Token Encontrado
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-black text-2xl text-[#2532f5]">
+                            {searchedParticipation.id}
+                          </span>
+                          <button
+                            onClick={() => handleCopyToken(searchedParticipation.id)}
+                            className="p-1 text-slate-400 hover:text-slate-700 transition"
+                            title="Copiar Token"
+                          >
+                            {copiedToken === searchedParticipation.id ? (
+                              <Check className="w-4 h-4 text-emerald-600" />
+                            ) : (
+                              <Copy className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {searchedParticipation.status === 'validated' ? (
+                          <span className="bg-blue-100 text-[#2532f5] border border-blue-200 font-extrabold text-xs px-3 py-1 rounded-full flex items-center gap-1.5">
+                            <UserCheck className="w-4 h-4" /> Validado / Resgatado
+                          </span>
+                        ) : (
+                          <span className="bg-amber-100 text-amber-900 border border-amber-300 font-extrabold text-xs px-3 py-1 rounded-full flex items-center gap-1.5">
+                            <Clock className="w-4 h-4 text-amber-600" /> Ativo (Aguardando Resgate)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs bg-slate-50 p-3 rounded-xl border border-slate-200">
+                      <div>
+                        <span className="text-slate-500 font-medium block">Desconto Conquistado:</span>
+                        <strong className="text-emerald-700 text-base font-black">
+                          {searchedParticipation.discountPercent}% OFF
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 font-medium block">Acertos no Quiz:</span>
+                        <strong className="text-slate-900 font-bold">
+                          {searchedParticipation.correctAnswers} / {searchedParticipation.totalQuestions} acertos
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 font-medium block">Data da Participação:</span>
+                        <strong className="text-slate-900 font-semibold">
+                          {new Date(searchedParticipation.createdAt).toLocaleDateString('pt-BR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </strong>
+                      </div>
+                    </div>
+
+                    {/* Momento PremieR Photo Preview in Search Result */}
+                    {searchedParticipation.petPhotoUrl && (
+                      <div className="flex items-center gap-3 bg-blue-50 p-3 rounded-xl border border-blue-200">
+                        <div
+                          onClick={() => setSelectedPhotoModal(searchedParticipation.petPhotoUrl!)}
+                          className="relative w-14 h-14 rounded-lg overflow-hidden border border-blue-300 shrink-0 cursor-pointer group"
+                        >
+                          <img
+                            src={searchedParticipation.petPhotoUrl}
+                            alt="Foto Pet"
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white">
+                            <Eye className="w-4 h-4" />
+                          </div>
+                        </div>
+                        <div className="text-xs">
+                          <span className="bg-amber-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded-md uppercase">
+                            Momento PremieRpet 📸
+                          </span>
+                          <p className="text-slate-700 font-bold mt-0.5">Foto com o Pet Enviada!</p>
+                          <p className="text-[10px] text-slate-500">Garantindo bônus extra de +5% de desconto.</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex items-center justify-end gap-2 pt-1">
+                      {searchedParticipation.status === 'validated' ? (
+                        <button
+                          onClick={() => handleUndoValidation(searchedParticipation.id)}
+                          className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition"
+                        >
+                          Desfazer Validação
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleValidateToken(searchedParticipation.id)}
+                          className="px-6 py-2.5 bg-[#2532f5] hover:bg-[#1a27e0] text-white font-black text-xs rounded-xl shadow-md transition flex items-center gap-1.5"
+                        >
+                          <Check className="w-4 h-4 text-amber-300" />
+                          Validar e Marcar como Resgatado
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="py-4 text-center text-slate-500 text-xs font-semibold">
+                    ⚠️ Nenhum cupom encontrado para o token <strong className="font-mono text-slate-800">{tokenSearchInput}</strong>.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* GALERIA DO MOMENTO PREMIERPET & REGISTROS */}
+          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-extrabold text-slate-900 text-base flex items-center gap-2">
+                  <Camera className="w-5 h-5 text-[#2532f5]" />
+                  Recebimentos Momento PremieRpet & Cupons
+                </h3>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Todas as fotos enviadas pelos tutores e lista de tokens gerados no Quiz.
+                </p>
+              </div>
+
+              {/* Filter Pills */}
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-full text-[11px] font-bold overflow-x-auto max-w-full">
+                <button
+                  onClick={() => setParticipationFilter('all')}
+                  className={`px-3 py-1 rounded-full transition whitespace-nowrap ${
+                    participationFilter === 'all'
+                      ? 'bg-white text-slate-900 shadow-2xs font-extrabold'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Todos ({participations.length})
+                </button>
+                <button
+                  onClick={() => setParticipationFilter('momento')}
+                  className={`px-3 py-1 rounded-full transition flex items-center gap-1 whitespace-nowrap ${
+                    participationFilter === 'momento'
+                      ? 'bg-[#2532f5] text-white shadow-2xs font-extrabold'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Camera className="w-3 h-3 text-amber-300" />
+                  Com Foto ({momentoCount})
+                </button>
+                <button
+                  onClick={() => setParticipationFilter('active')}
+                  className={`px-3 py-1 rounded-full transition whitespace-nowrap ${
+                    participationFilter === 'active'
+                      ? 'bg-amber-400 text-slate-950 shadow-2xs font-extrabold'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Ativos ({activeCount})
+                </button>
+                <button
+                  onClick={() => setParticipationFilter('validated')}
+                  className={`px-3 py-1 rounded-full transition whitespace-nowrap ${
+                    participationFilter === 'validated'
+                      ? 'bg-emerald-600 text-white shadow-2xs font-extrabold'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Validados ({validatedCount})
+                </button>
+              </div>
+            </div>
+
+            {/* List / Grid of Participations */}
+            {filteredParticipations.length === 0 ? (
+              <div className="text-center py-12 text-slate-400 text-xs space-y-2">
+                <Ticket className="w-10 h-10 mx-auto opacity-30 text-[#2532f5]" />
+                <p className="font-semibold text-slate-600">Nenhuma participação registrada nesta categoria.</p>
+                <p className="text-[11px]">Quando os tutores realizarem o quiz e enviarem fotos, elas aparecerão aqui!</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {filteredParticipations.map((part) => (
+                  <div
+                    key={part.id}
+                    className="bg-slate-50 p-4 rounded-2xl border border-slate-200 hover:border-blue-300 transition space-y-3 flex flex-col justify-between"
+                  >
+                    <div className="space-y-3">
+                      {/* Top Bar with Token Code & Status */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono font-black text-slate-900 text-base tracking-wider bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
+                            {part.id}
+                          </span>
+                          <button
+                            onClick={() => handleCopyToken(part.id)}
+                            className="p-1 text-slate-400 hover:text-slate-700 transition"
+                            title="Copiar Token"
+                          >
+                            {copiedToken === part.id ? (
+                              <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
+
+                        {part.status === 'validated' ? (
+                          <span className="bg-blue-100 text-[#2532f5] font-black text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                            Validado
+                          </span>
+                        ) : (
+                          <span className="bg-amber-100 text-amber-900 border border-amber-300 font-extrabold text-[10px] px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                            Ativo
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Momento PremieRpet Photo Thumbnail if Present */}
+                      {part.petPhotoUrl && (
+                        <div className="relative rounded-2xl overflow-hidden border-2 border-amber-300 shadow-sm group bg-slate-900">
+                          <img
+                            src={part.petPhotoUrl}
+                            alt="Momento PremieRpet"
+                            className="w-full h-44 object-cover group-hover:scale-105 transition duration-300"
+                          />
+                          <div className="absolute top-2 left-2 bg-amber-400 text-slate-950 font-black text-[10px] px-2.5 py-0.5 rounded-md flex items-center gap-1 shadow-md">
+                            <Heart className="w-3 h-3 fill-slate-950" />
+                            Momento PremieRpet (+5% Bônus)
+                          </div>
+                          <button
+                            onClick={() => setSelectedPhotoModal(part.petPhotoUrl!)}
+                            className="absolute bottom-2 right-2 bg-slate-950/80 hover:bg-slate-950 text-white font-bold text-[11px] px-3 py-1 rounded-lg backdrop-blur-xs flex items-center gap-1 transition"
+                          >
+                            <Eye className="w-3.5 h-3.5 text-amber-300" />
+                            Ampliar Foto
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Details Row */}
+                      <div className="grid grid-cols-2 gap-2 text-xs bg-white p-3 rounded-xl border border-slate-200">
+                        <div>
+                          <span className="text-slate-400 text-[10px] block uppercase font-bold">Desconto:</span>
+                          <span className="font-black text-emerald-700 text-sm">{part.discountPercent}% OFF</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 text-[10px] block uppercase font-bold">Acertos Quiz:</span>
+                          <span className="font-bold text-slate-800">{part.correctAnswers}/{part.totalQuestions} corretas</span>
+                        </div>
+                        <div className="col-span-2 pt-1 border-t border-slate-100 text-[11px] text-slate-500">
+                          <span>Data: {new Date(part.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                      </div>
+
+                      {/* Quiz Evaluation Rating if Present */}
+                      {part.quizEvaluationRating && (
+                        <div className="bg-amber-50/60 p-2.5 rounded-xl border border-amber-200/60 text-xs space-y-1">
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] font-bold text-amber-900">Avaliação do Quiz:</span>
+                            <div className="flex items-center">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star
+                                  key={star}
+                                  className={`w-3 h-3 ${
+                                    star <= (part.quizEvaluationRating || 0)
+                                      ? 'text-amber-500 fill-amber-500'
+                                      : 'text-slate-300'
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                          {part.quizEvaluationComment && (
+                            <p className="text-[11px] text-slate-700 italic">
+                              "{part.quizEvaluationComment}"
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Footer Actions */}
+                    <div className="pt-3 border-t border-slate-200 flex items-center justify-between gap-2">
+                      <button
+                        onClick={() => handleDeleteParticipationRecord(part.id)}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                        title="Excluir Registro"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+
+                      {part.status === 'validated' ? (
+                        <button
+                          onClick={() => handleUndoValidation(part.id)}
+                          className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs rounded-xl transition"
+                        >
+                          Desfazer Validação
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleValidateToken(part.id)}
+                          className="px-4 py-1.5 bg-[#2532f5] hover:bg-[#1a27e0] text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1"
+                        >
+                          <Check className="w-3.5 h-3.5 text-amber-300" />
+                          Validar Cupom
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 1: PERSONALIZAÇÃO DE CONTEÚDO */}
       {activeAdminTab === 'customization' && (
         <div className="space-y-6">
           {/* Sub-tab Switcher: Chat vs Quiz */}
@@ -481,7 +910,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               onClick={() => setCustomSubTab('chat')}
               className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition ${
                 customSubTab === 'chat'
-                  ? 'bg-emerald-700 text-white shadow-sm'
+                  ? 'bg-[#2532f5] text-white shadow-sm'
                   : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
               }`}
             >
@@ -494,37 +923,31 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               onClick={() => setCustomSubTab('quiz')}
               className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition ${
                 customSubTab === 'quiz'
-                  ? 'bg-emerald-700 text-white shadow-sm'
+                  ? 'bg-[#2532f5] text-white shadow-sm'
                   : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
               }`}
             >
-              <Award className="w-4 h-4" />
-              Personalização do Quiz
+              <Palette className="w-4 h-4" />
+              Personalização & Bonificação do Quiz
             </button>
           </div>
-
-          {saveSuccessMsg && (
-            <div className="bg-blue-50 border border-blue-300 text-blue-900 px-4 py-3 rounded-2xl text-xs font-bold flex items-center gap-2 animate-fadeIn">
-              <Check className="w-4 h-4 text-[#2532f5]" />
-              {saveSuccessMsg}
-            </div>
-          )}
 
           {/* SUB-TAB: CHAT */}
           {customSubTab === 'chat' && (
             <form onSubmit={handleSaveChatCustomization} className="space-y-6">
+              {/* CHAT IDENTITY */}
               <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
                 <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-                  <Palette className="w-5 h-5 text-amber-500" />
+                  <MessageSquare className="w-5 h-5 text-[#2532f5]" />
                   <h3 className="font-extrabold text-slate-900 text-base">
-                    Identidade & Textos do Chat
+                    Identidade Visual do Chat
                   </h3>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                   <div>
                     <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                      Título do Chat
+                      Título do Painel de Chat
                     </label>
                     <input
                       type="text"
@@ -538,7 +961,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
                   <div>
                     <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                      Nome do Agente (Personagem)
+                      Nome da Especialista (Atendente AI)
                     </label>
                     <input
                       type="text"
@@ -553,53 +976,45 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
                 <div className="text-xs">
                   <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Subtítulo / Descrição
+                    Subtítulo do Cabeçalho
                   </label>
                   <input
                     type="text"
                     required
                     value={chatForm.subtitle}
                     onChange={(e) => setChatForm({ ...chatForm, subtitle: e.target.value })}
-                    placeholder="Ex: Fale com a Dra. Patrícia Alves, sua guia médica-veterinária"
+                    placeholder="Ex: Fale com a Dra. Patrícia Alves, sua guia médica-veterinária..."
                     className="w-full p-2.5 rounded-xl border border-slate-300 text-slate-800 outline-none"
                   />
                 </div>
 
                 <div className="text-xs">
                   <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Mensagem de Boas-Vindas do Chat
+                    Mensagem de Boas-Vindas Inicial
                   </label>
                   <textarea
-                    rows={3}
+                    rows={2}
                     required
                     value={chatForm.welcomeMessage}
                     onChange={(e) => setChatForm({ ...chatForm, welcomeMessage: e.target.value })}
-                    placeholder="Ex: Olá, tutor(a)! Sou a Patrícia, médica-veterinária..."
-                    className="w-full p-2.5 rounded-xl border border-slate-300 text-slate-900 font-medium outline-none"
+                    placeholder="Olá! Eu sou a Patrícia, médica-veterinária..."
+                    className="w-full p-2.5 rounded-xl border border-slate-300 text-slate-800 font-medium outline-none"
                   />
                 </div>
 
-                {/* Avatar / Imagem da Patrícia */}
+                {/* AVATAR IMAGE */}
                 <div className="text-xs space-y-3 pt-2 border-t border-slate-100">
                   <label className="block font-bold text-slate-800 uppercase tracking-wider">
-                    Avatar da Agente (Dra. Patrícia)
+                    Foto de Perfil da Atendente (Avatar)
                   </label>
 
                   <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                    {/* Live Preview Box */}
-                    <div className="relative shrink-0">
+                    <div className="relative shrink-0 w-16 h-16 rounded-full overflow-hidden border-2 border-[#2532f5] shadow-md">
                       <img
-                        src={chatForm.avatarUrl || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="%232532f5"/></svg>'}
-                        alt="Preview Patrícia"
-                        referrerPolicy="no-referrer"
-                        className="w-20 h-20 rounded-2xl object-cover border-2 border-[#2532f5] shadow-md"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="%232532f5"/></svg>';
-                        }}
+                        src={chatForm.avatarUrl}
+                        alt="Preview Avatar Chat"
+                        className="w-full h-full object-cover"
                       />
-                      <span className="absolute -bottom-1 -right-1 bg-amber-400 text-slate-950 text-[9px] font-black px-1.5 py-0.5 rounded-md">
-                        PREVIEW
-                      </span>
                     </div>
 
                     <div className="flex-1 space-y-2 w-full">
@@ -632,7 +1047,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   <div className="flex items-center gap-2">
                     <Smile className="w-5 h-5 text-[#2532f5]" />
                     <h3 className="font-extrabold text-slate-900 text-base">
-                      Pesquisa de Satisfação & Cupom no Chat
+                      Pesquisa de Satisfação no Chat
                     </h3>
                   </div>
 
@@ -649,39 +1064,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   </label>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                  <div>
-                    <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                      Percentual de Desconto (%)
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={surveyForm.discountPercent}
-                      onChange={(e) => setSurveyForm({ ...surveyForm, discountPercent: parseInt(e.target.value) || 0 })}
-                      className="w-full p-2.5 rounded-xl border border-slate-300 font-bold text-slate-900 outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                      Código do Cupom de Desconto
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={surveyForm.couponCode}
-                      onChange={(e) => setSurveyForm({ ...surveyForm, couponCode: e.target.value.toUpperCase() })}
-                      placeholder="Ex: INFOSPREMIER10"
-                      className="w-full p-2.5 rounded-xl border border-slate-300 font-mono font-bold text-slate-900 outline-none uppercase"
-                    />
-                  </div>
-                </div>
-
                 <div className="text-xs">
                   <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Mensagem de Agradecimento
+                    Mensagem de Agradecimento da Pesquisa
                   </label>
                   <textarea
                     rows={2}
@@ -705,7 +1090,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </form>
           )}
 
-          {/* SUB-TAB: QUIZ */}
+          {/* SUB-TAB: QUIZ (COM CONFIGURAÇÃO EXCLUSIVA DE BONIFICAÇÃO DE DESCONTO) */}
           {customSubTab === 'quiz' && (
             <form onSubmit={handleSaveQuizCustomization} className="space-y-6">
               <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
@@ -740,32 +1125,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       required
                       value={quizForm.subtitle}
                       onChange={(e) => setQuizForm({ ...quizForm, subtitle: e.target.value })}
-                      placeholder="Ex: Testando conhecimentos nutricionais para o bem-estar do seu pet"
+                      placeholder="Ex: Teste seus conhecimentos e conquiste cupons de desconto..."
                       className="w-full p-2.5 rounded-xl border border-slate-300 text-slate-800 outline-none"
                     />
                   </div>
                 </div>
 
-                {/* Banner do Quiz */}
                 <div className="text-xs space-y-3 pt-2 border-t border-slate-100">
                   <label className="block font-bold text-slate-800 uppercase tracking-wider">
                     Banner / Imagem Ilustrativa do Quiz
                   </label>
 
                   <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                    {/* Live Preview Box */}
                     <div className="relative shrink-0 w-full sm:w-48 h-28 rounded-2xl overflow-hidden border-2 border-[#2532f5] shadow-md">
                       <img
                         src={quizForm.bannerUrl}
                         alt="Preview Banner Quiz"
                         className="w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&q=80&w=800';
-                        }}
                       />
-                      <span className="absolute top-2 left-2 bg-amber-400 text-slate-950 text-[9px] font-black px-1.5 py-0.5 rounded-md">
-                        BANNER
-                      </span>
                     </div>
 
                     <div className="flex-1 space-y-2 w-full">
@@ -792,13 +1169,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </div>
               </div>
 
-              {/* BONIFICAÇÃO DO QUIZ */}
+              {/* BONIFICAÇÃO DO QUIZ (EXCLUSIVO) */}
               <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
                 <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
                   <Gift className="w-5 h-5 text-amber-500" />
-                  <h3 className="font-extrabold text-slate-900 text-base">
-                    Configuração de Bonificação do Quiz
-                  </h3>
+                  <div>
+                    <h3 className="font-extrabold text-slate-900 text-base">
+                      Configuração de Bonificação do Quiz
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium">
+                      Configure as regras para liberação de cupons de desconto no Quiz de Nutrição.
+                    </p>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
@@ -816,13 +1198,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       className="w-full p-2.5 rounded-xl border border-slate-300 font-bold text-slate-900 outline-none focus:border-[#2532f5]"
                     />
                     <p className="text-[10px] text-slate-500 font-medium mt-1">
-                      Mínimo de respostas corretas necessárias para liberar o desconto (Ex: 3 acertos).
+                      Mínimo de respostas corretas exigidas para liberar o desconto (Ex: 3 acertos).
                     </p>
                   </div>
 
                   <div>
                     <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                      Percentual de Desconto (%)
+                      Percentual de Desconto Base (%)
                     </label>
                     <input
                       type="number"
@@ -832,32 +1214,38 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       onChange={(e) => setQuizBonusForm({ ...quizBonusForm, discountPercent: parseInt(e.target.value) || 0 })}
                       className="w-full p-2.5 rounded-xl border border-slate-300 font-bold text-slate-900 outline-none"
                     />
+                    <p className="text-[10px] text-slate-500 font-medium mt-1">
+                      Tutores que enviarem foto no Momento PremieRpet ganham +5% extra.
+                    </p>
                   </div>
 
                   <div>
                     <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                      Código do Cupom
+                      Prefixo / Código Base do Cupom
                     </label>
                     <input
                       type="text"
                       required
                       value={quizBonusForm.couponCode}
                       onChange={(e) => setQuizBonusForm({ ...quizBonusForm, couponCode: e.target.value.toUpperCase() })}
-                      placeholder="Ex: TUTORDEOURO15"
+                      placeholder="Ex: PREMIER5"
                       className="w-full p-2.5 rounded-xl border border-slate-300 font-mono font-bold text-slate-900 outline-none uppercase"
                     />
+                    <p className="text-[10px] text-slate-500 font-medium mt-1">
+                      O sistema gera tokens únicos vinculados a cada participação do tutor.
+                    </p>
                   </div>
                 </div>
 
                 <div className="text-xs">
                   <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Mensagem de Recompensa (Certificado)
+                    Mensagem de Recompensa
                   </label>
                   <textarea
                     rows={2}
                     value={quizBonusForm.rewardMessage}
                     onChange={(e) => setQuizBonusForm({ ...quizBonusForm, rewardMessage: e.target.value })}
-                    placeholder="Parabéns! Sua pontuação provou que você é um Tutor Nota 10..."
+                    placeholder="Parabéns! Você atingiu o número mínimo de acertos e conquistou seu cupom de desconto!"
                     className="w-full p-2.5 rounded-xl border border-slate-300 text-slate-800 font-medium outline-none"
                   />
                 </div>
@@ -869,7 +1257,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   className="px-6 py-3 bg-[#2532f5] hover:bg-[#1a27e0] text-white font-bold rounded-2xl shadow-md transition flex items-center gap-2 text-xs"
                 >
                   <Save className="w-4 h-4 text-amber-300" />
-                  Salvar Personalização do Quiz
+                  Salvar Personalização e Bonificação do Quiz
                 </button>
               </div>
             </form>
@@ -877,148 +1265,171 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       )}
 
-      {/* TAB 1: QUIZ MANAGEMENT (Matches Screenshot 3) */}
+      {/* TAB 2: GERENCIAMENTO DE PERGUNTAS E TEMAS DO QUIZ */}
       {activeAdminTab === 'quiz' && (
-        <div className="space-y-4">
-          <button
-            onClick={handleOpenAddQuestion}
-            className="w-full bg-[#2532f5] hover:bg-[#1a27e0] text-white font-extrabold rounded-full py-3.5 text-sm shadow-sm transition flex items-center justify-center gap-2 mb-4"
-          >
-            <Plus className="w-5 h-5 text-white" />
-            Nova pergunta
-          </button>
-
-          <div className="mb-3">
-            <input
-              type="text"
-              placeholder="Buscar pergunta ou categoria..."
-              value={quizSearch}
-              onChange={(e) => setQuizSearch(e.target.value)}
-              className="w-full px-5 py-2.5 rounded-full border border-slate-200 text-xs text-slate-800 outline-none focus:border-[#2532f5] bg-white shadow-2xs"
-            />
-          </div>
-
-          <div className="space-y-3">
-            {filteredQuestions.map((q) => {
-              const correctOpt = q.options.find((o) => o.isCorrect);
-              return (
-                <div
-                  key={q.id}
-                  className="bg-white border border-slate-100/90 rounded-[24px] p-5 shadow-2xs hover:shadow-xs transition flex items-center justify-between gap-4"
-                >
-                  <div className="space-y-1">
-                    <h4 className="font-extrabold text-slate-900 text-sm sm:text-base leading-snug">
-                      {q.question}
-                    </h4>
-                    <p className="text-xs text-slate-500 font-normal">
-                      {q.category} • {q.points} pontos • resposta: <span className="font-semibold text-slate-700">{correctOpt?.text || 'N/A'}</span>
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => handleOpenEditQuestion(q)}
-                      className="p-2 text-slate-700 hover:text-[#2532f5] rounded-full transition"
-                      title="Editar Pergunta"
-                    >
-                      <Edit3 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteQuestion(q.id)}
-                      className="p-2 text-rose-500 hover:text-rose-700 rounded-full transition"
-                      title="Excluir Pergunta"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* TAB 2: SUBFAMILIES MANAGEMENT */}
-      {activeAdminTab === 'products' && (
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200">
-            <input
-              type="text"
-              placeholder="Buscar subfamília ou categoria..."
-              value={productSearch}
-              onChange={(e) => setProductSearch(e.target.value)}
-              className="w-full sm:w-72 px-3.5 py-2 rounded-xl border border-slate-300 text-xs text-slate-800 outline-none focus:border-[#2532f5]"
-            />
-
-            <button
-              onClick={handleOpenAddSubfamily}
-              className="w-full sm:w-auto px-4 py-2 bg-[#2532f5] hover:bg-[#1a27e0] text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center justify-center gap-1.5 shrink-0"
-            >
-              <Plus className="w-4 h-4 text-amber-300" />
-              Nova Subfamília PremieRpet
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredSubfamilies.map((sub) => (
-              <div
-                key={sub.id}
-                className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs hover:border-blue-300 transition space-y-3 flex flex-col justify-between"
-              >
-                <div className="space-y-3">
-                  <div className="flex items-start gap-3">
-                    <img
-                      src={sub.image}
-                      alt={sub.name}
-                      className="w-16 h-16 rounded-xl object-cover border border-slate-200 shrink-0"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                        <span className="text-[9px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md">
-                          {sub.category}
-                        </span>
-                        <span className="text-[9px] font-bold uppercase tracking-wider bg-blue-100 text-[#2532f5] px-2 py-0.5 rounded-md">
-                          {sub.petType === 'dog' ? '🐶 Cães' : sub.petType === 'cat' ? '🐱 Gatos' : '🐾 Ambos'}
-                        </span>
-                      </div>
-                      <h4 className="font-extrabold text-slate-900 text-base truncate">{sub.name}</h4>
-                      {sub.subName && <p className="text-xs text-[#2532f5] font-semibold">{sub.subName}</p>}
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-slate-600 line-clamp-2">{sub.description}</p>
-
-                  <div className="flex flex-wrap gap-1">
-                    {sub.highlights.map((h, i) => (
-                      <span key={i} className="text-[10px] bg-amber-50 text-amber-900 font-medium px-2 py-0.5 rounded-md border border-amber-200">
-                        {h}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                  <span className="text-slate-400 text-[11px]">{sub.sampleQuestions?.length || 0} perguntas sugeridas</span>
-
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => handleOpenEditSubfamily(sub)}
-                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs transition flex items-center gap-1"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                      Editar
-                    </button>
-                    <button
-                      onClick={() => handleDeleteSubfamily(sub.id)}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
-                      title="Excluir"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+        <div className="space-y-6">
+          {/* CONSOLIDADOS DE TEMAS / TIPOS DE QUIZ */}
+          <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Layers className="w-5 h-5 text-[#2532f5]" />
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-base">
+                    Consolidados de Temas & Tipos do Quiz
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Crie e gerencie os temas de Quiz disponíveis para seleção pelos tutores.
+                  </p>
                 </div>
               </div>
-            ))}
+
+              <button
+                type="button"
+                onClick={handleOpenAddTheme}
+                className="px-4 py-2 bg-[#2532f5] hover:bg-[#1a27e0] text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5"
+              >
+                <Plus className="w-4 h-4 text-white" />
+                Novo Tema de Quiz
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+              {quizThemes.map((theme) => {
+                const questionCount = theme.id === 'todos'
+                  ? quizQuestions.length
+                  : quizQuestions.filter((q) => q.category === theme.id).length;
+
+                return (
+                  <div
+                    key={theme.id}
+                    className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 flex flex-col justify-between space-y-2 hover:border-blue-300 transition"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-lg">{theme.icon || '📌'}</span>
+                        <span className="bg-blue-100 text-[#2532f5] text-[10px] font-black px-2 py-0.5 rounded-md">
+                          {questionCount} {questionCount === 1 ? 'pergunta' : 'perguntas'}
+                        </span>
+                      </div>
+                      <h4 className="font-extrabold text-slate-900 text-xs">{theme.name}</h4>
+                      {theme.description && (
+                        <p className="text-[11px] text-slate-500 line-clamp-2">{theme.description}</p>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-slate-400">
+                      <span className="font-mono text-[10px] uppercase">{theme.id}</span>
+                      {theme.id !== 'todos' && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleOpenEditTheme(theme)}
+                            className="p-1 hover:text-[#2532f5] transition"
+                            title="Editar Tema"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteTheme(theme.id)}
+                            className="p-1 hover:text-rose-600 transition"
+                            title="Excluir Tema"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* PERGUNTAS DO QUIZ */}
+          <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-extrabold text-slate-900 text-base">
+                  Banco de Perguntas do Quiz
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  Adicione, edite ou remova perguntas associadas aos temas do quiz.
+                </p>
+              </div>
+
+              <button
+                onClick={handleOpenAddQuestion}
+                className="px-4 py-2 bg-[#2532f5] hover:bg-[#1a27e0] text-white font-extrabold rounded-xl text-xs shadow-xs transition flex items-center gap-1.5"
+              >
+                <Plus className="w-4 h-4 text-white" />
+                Nova Pergunta
+              </button>
+            </div>
+
+            <div className="mb-3">
+              <input
+                type="text"
+                placeholder="Buscar pergunta ou categoria..."
+                value={quizSearch}
+                onChange={(e) => setQuizSearch(e.target.value)}
+                className="w-full px-5 py-2.5 rounded-full border border-slate-200 text-xs text-slate-800 outline-none focus:border-[#2532f5] bg-slate-50 shadow-2xs"
+              />
+            </div>
+
+            <div className="space-y-3">
+              {filteredQuestions.map((q) => {
+                const matchedTheme = quizThemes.find((t) => t.id === q.category);
+                return (
+                  <div
+                    key={q.id}
+                    className="bg-slate-50 p-4.5 rounded-2xl border border-slate-200/80 shadow-2xs hover:border-blue-300 transition space-y-2"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[10px] font-extrabold uppercase bg-blue-100 text-[#2532f5] px-2.5 py-0.5 rounded-md flex items-center gap-1">
+                            <span>{matchedTheme?.icon || '📌'}</span>
+                            <span>{matchedTheme?.name || q.category}</span>
+                          </span>
+                        </div>
+                        <h4 className="font-extrabold text-slate-900 text-sm">{q.question}</h4>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => handleOpenEditQuestion(q)}
+                          className="p-1.5 text-slate-500 hover:text-[#2532f5] hover:bg-blue-50 rounded-lg transition"
+                          title="Editar Pergunta"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteQuestion(q.id)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                          title="Excluir Pergunta"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-2 border-t border-slate-200/60 text-xs">
+                      {q.options.map((opt) => (
+                        <div
+                          key={opt.id}
+                          className={`p-2 rounded-xl flex items-center gap-2 ${
+                            opt.isCorrect ? 'bg-emerald-50 text-emerald-900 border border-emerald-200 font-bold' : 'bg-white text-slate-700 border border-slate-200/60'
+                          }`}
+                        >
+                          <span className="uppercase text-[10px] font-black">{opt.id})</span>
+                          <span className="flex-1 truncate">{opt.text}</span>
+                          {opt.isCorrect && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
@@ -1065,7 +1476,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               Backup & Importação em Lote
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Exporte todos os dados cadastrados em arquivo JSON ou importe configurações completas.
+              Exporte todos os dados do Quiz e registros em arquivo JSON ou importe configurações.
             </p>
 
             <div className="mt-4 flex flex-wrap gap-3">
@@ -1090,10 +1501,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <div>
             <h3 className="font-extrabold text-rose-900 text-lg flex items-center gap-2">
               <RotateCcw className="w-5 h-5 text-rose-600" />
-              Restaurar Dados Padrões
+              Restaurar Perguntas Padrões
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Reseta o banco local para as perguntas e subfamílias padrão da fábrica da PremieRpet.
+              Reseta as perguntas do Quiz para os padrões originais da fábrica.
             </p>
 
             <button
@@ -1144,17 +1555,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Categoria
+                    Tema / Tipo do Quiz
                   </label>
                   <select
-                    value={editingQuestion.category || 'nutricao'}
-                    onChange={(e) => setEditingQuestion({ ...editingQuestion, category: e.target.value as any })}
+                    value={editingQuestion.category || (quizThemes[1]?.id || 'nutricao')}
+                    onChange={(e) => setEditingQuestion({ ...editingQuestion, category: e.target.value })}
                     className="w-full p-2.5 rounded-xl border border-slate-300 font-bold text-slate-800 outline-none"
                   >
-                    <option value="nutricao">Nutrição</option>
-                    <option value="linha_premier">Linha PremieR</option>
-                    <option value="saude">Saúde</option>
-                    <option value="cuidados">Cuidados</option>
+                    {quizThemes.filter((t) => t.id !== 'todos').map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.icon || '📌'} {t.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -1248,183 +1660,120 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       )}
 
-      {/* --- SUBFAMILY EDIT MODAL --- */}
-      {isSubfamilyModalOpen && editingSubfamily && (
+      {/* QUIZ THEME EDIT MODAL */}
+      {isThemeModalOpen && editingTheme && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white w-full max-w-2xl rounded-3xl p-6 shadow-2xl border border-slate-200 space-y-5 my-8">
+          <div className="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-slate-200 space-y-5 my-8">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="font-extrabold text-slate-900 text-lg flex items-center gap-2">
-                <Package className="w-5 h-5 text-[#2532f5]" />
-                {subfamilies.some((s) => s.id === editingSubfamily.id)
-                  ? 'Editar Subfamília PremieRpet'
-                  : 'Cadastrar Nova Subfamília'}
+                <Layers className="w-5 h-5 text-[#2532f5]" />
+                {quizThemes.some((t) => t.id === editingTheme.id)
+                  ? 'Editar Tema do Quiz'
+                  : 'Criar Novo Tema do Quiz'}
               </h3>
               <button
-                onClick={() => setIsSubfamilyModalOpen(false)}
+                onClick={() => setIsThemeModalOpen(false)}
                 className="p-1.5 text-slate-400 hover:text-slate-800 rounded-lg"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveSubfamily} className="space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleSaveTheme} className="space-y-4 text-xs">
+              <div className="grid grid-cols-4 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Nome da Subfamília
+                    Ícone / Emoji
                   </label>
                   <input
                     type="text"
                     required
-                    value={editingSubfamily.name || ''}
-                    onChange={(e) => setEditingSubfamily({ ...editingSubfamily, name: e.target.value })}
-                    placeholder="Ex: PremieR Cookie"
-                    className="w-full p-2.5 rounded-xl border border-slate-300 font-bold text-slate-900 outline-none focus:border-[#2532f5]"
+                    value={editingTheme.icon || '📌'}
+                    onChange={(e) => setEditingTheme({ ...editingTheme, icon: e.target.value })}
+                    placeholder="Ex: 🥩"
+                    className="w-full p-2.5 rounded-xl border border-slate-300 font-bold text-slate-900 text-center text-base outline-none focus:border-[#2532f5]"
                   />
                 </div>
 
-                <div>
+                <div className="col-span-3">
                   <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Sub-título ou Slogan
+                    Nome do Tema / Tipo do Quiz
                   </label>
                   <input
                     type="text"
-                    value={editingSubfamily.subName || ''}
-                    onChange={(e) => setEditingSubfamily({ ...editingSubfamily, subName: e.target.value })}
-                    placeholder="Ex: Biscoitos Crocantes Assados"
-                    className="w-full p-2.5 rounded-xl border border-slate-300 text-slate-800 outline-none"
+                    required
+                    value={editingTheme.name || ''}
+                    onChange={(e) => setEditingTheme({ ...editingTheme, name: e.target.value })}
+                    placeholder="Ex: Nutrição de Cães Filhotes"
+                    className="w-full p-2.5 rounded-xl border border-slate-300 font-bold text-slate-900 text-xs outline-none focus:border-[#2532f5]"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Categoria
-                  </label>
-                  <select
-                    value={editingSubfamily.category || 'Super Premium'}
-                    onChange={(e) => setEditingSubfamily({ ...editingSubfamily, category: e.target.value as ProductCategory })}
-                    className="w-full p-2.5 rounded-xl border border-slate-300 font-bold text-slate-800 outline-none"
-                  >
-                    <option value="Super Premium">Super Premium</option>
-                    <option value="Alimentos Específicos">Alimentos Específicos</option>
-                    <option value="Nutrição Clínica">Nutrição Clínica</option>
-                    <option value="Alimento Completo Úmidos">Alimento Completo Úmidos</option>
-                    <option value="Natural & Orgânico">Natural & Orgânico</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Espécie Indicada
-                  </label>
-                  <select
-                    value={editingSubfamily.petType || 'both'}
-                    onChange={(e) => setEditingSubfamily({ ...editingSubfamily, petType: e.target.value as PetType })}
-                    className="w-full p-2.5 rounded-xl border border-slate-300 font-bold text-slate-800 outline-none"
-                  >
-                    <option value="dog">🐶 Cães</option>
-                    <option value="cat">🐱 Gatos</option>
-                    <option value="both">🐾 Ambos (Cães e Gatos)</option>
-                  </select>
-                </div>
-              </div>
-
               <div>
                 <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  URL da Imagem Ilustrativa
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editingSubfamily.image || ''}
-                  onChange={(e) => setEditingSubfamily({ ...editingSubfamily, image: e.target.value })}
-                  placeholder="https://..."
-                  className="w-full p-2.5 rounded-xl border border-slate-300 font-mono text-[11px] text-slate-800 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Descrição Completa
-                </label>
-                <textarea
-                  required
-                  rows={3}
-                  value={editingSubfamily.description || ''}
-                  onChange={(e) => setEditingSubfamily({ ...editingSubfamily, description: e.target.value })}
-                  placeholder="Descrição detalhada sobre diferenciais, fórmulas e benefícios para o chat e catálogo..."
-                  className="w-full p-2.5 rounded-xl border border-slate-300 font-medium text-slate-900 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Recomendado Para
-                </label>
-                <input
-                  type="text"
-                  value={editingSubfamily.recommendedFor || ''}
-                  onChange={(e) => setEditingSubfamily({ ...editingSubfamily, recommendedFor: e.target.value })}
-                  placeholder="Ex: Cães adultos de pequeno porte com dentes sensíveis"
-                  className="w-full p-2.5 rounded-xl border border-slate-300 text-slate-800 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Destaques Nutricionais (separados por vírgula)
-                </label>
-                <input
-                  type="text"
-                  value={editingSubfamily.highlights?.join(', ') || ''}
-                  onChange={(e) =>
-                    setEditingSubfamily({
-                      ...editingSubfamily,
-                      highlights: e.target.value.split(',').map((s) => s.trim()).filter(Boolean),
-                    })
-                  }
-                  placeholder="Ex: Cage Free, Hexametafosfato, Baixo Sódio"
-                  className="w-full p-2.5 rounded-xl border border-slate-300 text-slate-800 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Perguntas Sugeridas para o Tutor no Chat (uma por linha)
+                  Descrição Curta do Tema
                 </label>
                 <textarea
                   rows={2}
-                  value={editingSubfamily.sampleQuestions?.join('\n') || ''}
-                  onChange={(e) =>
-                    setEditingSubfamily({
-                      ...editingSubfamily,
-                      sampleQuestions: e.target.value.split('\n').filter((line) => line.trim().length > 0),
-                    })
-                  }
-                  placeholder="Qual a quantidade diária recomendada?&#10;Pode ser oferecido como petisco de adestramento?"
-                  className="w-full p-2.5 rounded-xl border border-slate-300 text-slate-800 outline-none"
+                  value={editingTheme.description || ''}
+                  onChange={(e) => setEditingTheme({ ...editingTheme, description: e.target.value })}
+                  placeholder="Ex: Perguntas sobre dieta, crescimento e transição alimentar de filhotes."
+                  className="w-full p-2.5 rounded-xl border border-slate-300 font-medium text-slate-800 text-xs outline-none focus:border-[#2532f5]"
                 />
               </div>
 
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setIsSubfamilyModalOpen(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs"
+                  onClick={() => setIsThemeModalOpen(false)}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-[#2532f5] hover:bg-[#1a27e0] text-white font-bold rounded-xl text-xs shadow-md transition flex items-center gap-1.5"
+                  className="px-5 py-2.5 bg-[#2532f5] hover:bg-[#1a27e0] text-white font-bold rounded-xl shadow-md transition flex items-center gap-1.5"
                 >
                   <Save className="w-4 h-4 text-amber-300" />
-                  Salvar Subfamília
+                  Salvar Tema
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* PHOTO PREVIEW MODAL */}
+      {selectedPhotoModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="relative bg-slate-900 rounded-3xl p-4 max-w-xl w-full border border-slate-700 shadow-2xl space-y-4 text-center">
+            <button
+              onClick={() => setSelectedPhotoModal(null)}
+              className="absolute top-4 right-4 p-2 bg-black/50 text-white hover:bg-black rounded-full transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="rounded-2xl overflow-hidden border-2 border-amber-400">
+              <img
+                src={selectedPhotoModal}
+                alt="Momento PremieRpet Expandido"
+                className="w-full max-h-[75vh] object-contain mx-auto"
+              />
+            </div>
+
+            <div className="flex items-center justify-between text-xs text-white pt-2 px-2">
+              <span className="font-black text-amber-300 flex items-center gap-1">
+                <Heart className="w-4 h-4 fill-amber-300" /> Momento PremieRpet
+              </span>
+              <button
+                onClick={() => setSelectedPhotoModal(null)}
+                className="px-4 py-1.5 bg-white text-slate-900 font-bold rounded-xl"
+              >
+                Fechar
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { PetProfile, ProductSubfamily, QuizQuestion, ChatCustomization, QuizCustomization, SurveyConfig, QuizBonusConfig } from './types';
 import { Header } from './components/Header';
 import { Navigation, TabType } from './components/Navigation';
 import { ChatBot } from './components/ChatBot';
@@ -14,7 +13,9 @@ import {
   getQuizCustomization,
   getSurveyConfig,
   getQuizBonusConfig,
+  getStoredQuizThemes,
 } from './utils/storage';
+import { PetProfile, ProductSubfamily, QuizQuestion, ChatCustomization, QuizCustomization, SurveyConfig, QuizBonusConfig, QuizTheme } from './types';
 
 function getInitialPath(): string {
   if (typeof window === 'undefined') return '/';
@@ -50,12 +51,16 @@ export default function App() {
     if (typeof window !== 'undefined') {
       window.history.pushState({}, '', path);
       setRoutePath(path);
+      if (path === '/') {
+        setActiveTab('chat');
+      }
     }
   };
 
-  // Dynamic Subfamilies & Quiz Questions managed by Admin Panel
+  // Dynamic Subfamilies, Quiz Questions & Quiz Themes managed by Admin Panel
   const [subfamilies, setSubfamilies] = useState<ProductSubfamily[]>(getStoredSubfamilies);
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>(getStoredQuizQuestions);
+  const [quizThemes, setQuizThemes] = useState<QuizTheme[]>(getStoredQuizThemes);
 
   // Customization & Discount configs
   const [chatCustomization, setChatCustomization] = useState<ChatCustomization>(getChatCustomization);
@@ -101,6 +106,8 @@ export default function App() {
             onUpdateSubfamilies={setSubfamilies}
             quizQuestions={quizQuestions}
             onUpdateQuizQuestions={setQuizQuestions}
+            quizThemes={quizThemes}
+            onUpdateQuizThemes={setQuizThemes}
             chatCustomization={chatCustomization}
             onUpdateChatCustomization={setChatCustomization}
             quizCustomization={quizCustomization}
@@ -146,6 +153,7 @@ export default function App() {
           {activeTab === 'quiz' && (
             <QuizSection
               quizQuestions={quizQuestions}
+              quizThemes={quizThemes}
               quizCustomization={quizCustomization}
               quizBonusConfig={quizBonusConfig}
               onAddPoints={handleAddQuizPoints}

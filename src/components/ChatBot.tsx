@@ -62,14 +62,24 @@ export const ChatBot: React.FC<ChatBotProps> = ({
   const [isSpeakingId, setIsSpeakingId] = useState<string | null>(null);
   const [isListening, setIsListening] = useState(false);
 
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({
+        top: scrollContainerRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
+    }
   };
 
   useEffect(() => {
-    scrollToBottom();
+    if (messages.length > 1) {
+      scrollToBottom();
+    } else if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
   }, [messages, isLoading]);
 
   // Speech Recognition setup if supported
@@ -197,58 +207,61 @@ export const ChatBot: React.FC<ChatBotProps> = ({
   return (
     <div className="flex flex-col h-[calc(100vh-140px)] md:h-[680px] max-w-3xl mx-auto bg-[#f8fafc] rounded-[32px] shadow-lg border border-slate-200/80 overflow-hidden relative">
       {/* Top Pet Context Bar */}
-      <div className="bg-white px-5 py-3.5 flex items-center justify-between border-b border-slate-200/80 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="relative">
+      <div className="bg-white px-3 sm:px-5 py-2.5 sm:py-3.5 flex items-center justify-between gap-2 border-b border-slate-200/80 shrink-0 w-full overflow-hidden">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <div className="relative shrink-0">
             <img
               src={chatCustomization.avatarUrl || DEFAULT_PATRICIA_AVATAR}
               alt={chatCustomization.agentName}
               referrerPolicy="no-referrer"
-              className="w-10 h-10 rounded-full object-cover border-2 border-[#2532f5] shadow-2xs"
+              className="w-9 h-9 sm:w-11 sm:h-11 rounded-full object-cover border-2 border-[#2532f5] shadow-2xs shrink-0"
               onError={(e) => {
                 (e.target as HTMLImageElement).src = FALLBACK_PATRICIA_AVATAR;
               }}
             />
-            <span className="absolute bottom-0 right-0 w-3 h-3 bg-sky-400 border-2 border-white rounded-full"></span>
+            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-sky-400 border-2 border-white rounded-full"></span>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="font-extrabold text-sm text-slate-900">{chatCustomization.agentName}</h2>
-              <span className="bg-[#2532f5]/10 text-[#2532f5] text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap min-w-0">
+              <h2 className="font-extrabold text-xs sm:text-sm text-slate-900 truncate leading-snug">
+                {chatCustomization.agentName}
+              </h2>
+              <span className="bg-[#2532f5]/10 text-[#2532f5] text-[9px] sm:text-[10px] font-extrabold px-1.5 sm:px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0">
                 Guia Veterinária
               </span>
             </div>
-            <p className="text-xs text-slate-500 font-medium">
+            <p className="text-[10px] sm:text-xs text-slate-500 font-medium truncate hidden xs:block sm:block">
               Especialista em Nutrição e Saúde Animal
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 shrink-0">
           {onNavigateToQuiz && (
             <button
               onClick={onNavigateToQuiz}
-              className="text-xs text-white bg-[#2532f5] hover:bg-[#1a27e0] font-extrabold px-3.5 py-1.5 rounded-full transition flex items-center gap-1.5 shadow-sm hover:shadow shrink-0"
+              className="text-xs text-white bg-[#2532f5] hover:bg-[#1a27e0] font-extrabold px-2.5 sm:px-3.5 py-1.5 rounded-full transition flex items-center gap-1 sm:gap-1.5 shadow-sm hover:shadow shrink-0"
               title="Finalizar atendimento e ir para o Quiz para ganhar desconto"
             >
-              <Gift className="w-3.5 h-3.5 text-amber-300" />
-              <span>Finalizar & Ir para o Quiz</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              <Gift className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+              <span className="hidden sm:inline">Finalizar & Ir para o Quiz</span>
+              <span className="sm:hidden text-[11px] font-black">Quiz</span>
+              <ArrowRight className="w-3 h-3 shrink-0" />
             </button>
           )}
 
           <button
             onClick={handleReset}
-            className="p-1.5 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-100 transition"
+            className="p-1.5 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-100 transition shrink-0"
             title="Limpar conversa"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </button>
         </div>
       </div>
 
       {/* Messages Scroll Area */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 bg-[#f2f5fd]">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 bg-[#f2f5fd]">
         {/* Welcome Header (Screenshot 1 Style) if only 1 message */}
         {messages.length <= 1 && (
           <div className="text-center py-6 sm:py-8 px-4 max-w-lg mx-auto animate-fadeIn">

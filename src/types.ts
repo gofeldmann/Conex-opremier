@@ -31,6 +31,13 @@ export interface ChatMessage {
   suggestedQuestions?: string[];
 }
 
+export interface QuizTheme {
+  id: string;
+  name: string;
+  description?: string;
+  icon?: string;
+}
+
 export interface QuizQuestion {
   id: number;
   question: string;
@@ -40,7 +47,7 @@ export interface QuizQuestion {
     isCorrect: boolean;
     explanation: string;
   }[];
-  category: 'nutricao' | 'linha_premier' | 'saude' | 'cuidados';
+  category: string; // matches QuizTheme id
   points: number;
 }
 

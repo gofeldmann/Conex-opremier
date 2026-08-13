@@ -1,4 +1,4 @@
-import { ProductSubfamily, QuizQuestion, ChatCustomization, QuizCustomization, SurveyConfig, QuizBonusConfig } from '../types';
+import { ProductSubfamily, QuizQuestion, ChatCustomization, QuizCustomization, SurveyConfig, QuizBonusConfig, QuizParticipation } from '../types';
 import { PREMIER_SUBFAMILIES } from '../data/premierProducts';
 import { PET_QUIZ_QUESTIONS } from '../data/quizQuestions';
 import { DEFAULT_PATRICIA_AVATAR, DEFAULT_QUIZ_BANNER } from './defaultImages';
@@ -198,3 +198,139 @@ export function saveQuizBonusConfig(config: QuizBonusConfig): void {
     console.error('Error saving quiz bonus config:', e);
   }
 }
+
+// PARTICIPATIONS & TOKEN MANAGEMENT
+const PARTICIPATIONS_KEY = 'premier_quiz_participations_v1';
+
+export function getStoredParticipations(): QuizParticipation[] {
+  try {
+    const data = localStorage.getItem(PARTICIPATIONS_KEY);
+    if (data) {
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.error('Error reading participations from localStorage:', e);
+  }
+  return [];
+}
+
+export function generateParticipationToken(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let token = 'PMTR-';
+  for (let i = 0; i < 6; i++) {
+    token += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return token;
+}
+
+export function saveQuizParticipation(
+  participationData: Omit<QuizParticipation, 'id' | 'createdAt' | 'status'>
+): QuizParticipation {
+  try {
+    const existing = getStoredParticipations();
+    const newParticipation: QuizParticipation = {
+      ...participationData,
+      id: generateParticipationToken(),
+      createdAt: new Date().toISOString(),
+      status: 'active',
+    };
+    const updated = [newParticipation, ...existing];
+    localStorage.setItem(PARTICIPATIONS_KEY, JSON.stringify(updated));
+    return newParticipation;
+  } catch (e) {
+    console.error('Error saving quiz participation:', e);
+    return {
+      ...participationData,
+      id: 'PMTR-' + Math.random().toString(36).substring(2, 8).toUpperCase(),
+      createdAt: new Date().toISOString(),
+      status: 'active',
+    };
+  }
+}
+
+export function updateParticipationPhoto(token: string, petPhotoUrl: string): QuizParticipation | null {
+  try {
+    const existing = getStoredParticipations();
+    const index = existing.findIndex((p) => p.id === token);
+    if (index >= 0) {
+      existing[index].petPhotoUrl = petPhotoUrl;
+      existing[index].hasMomentoPremierPhoto = true;
+      existing[index].discountPercent = 10;
+      localStorage.setItem(PARTICIPATIONS_KEY, JSON.stringify(existing));
+      return existing[index];
+    }
+  } catch (e) {
+    console.error('Error updating participation photo:', e);
+  }
+  return null;
+}
+
+export function updateParticipationStatus(id: string, status: 'active' | 'validated'): boolean {
+  try {
+    const existing = getStoredParticipations();
+    const index = existing.findIndex((p) => p.id === id);
+    if (index >= 0) {
+      existing[index].status = status;
+      if (status === 'validated') {
+        existing[index].validatedAt = new Date().toISOString();
+      } else {
+        delete existing[index].validatedAt;
+      }
+      localStorage.setItem(PARTICIPATIONS_KEY, JSON.stringify(existing));
+      return true;
+    }
+  } catch (e) {
+    console.error('Error updating participation status:', e);
+  }
+  return false;
+}
+
+export function deleteParticipation(id: string): void {
+  try {
+    const existing = getStoredParticipations();
+    const filtered = existing.filter((p) => p.id !== id);
+    localStorage.setItem(PARTICIPATIONS_KEY, JSON.stringify(filtered));
+  } catch (e) {
+    console.error('Error deleting participation:', e);
+  }
+}
+
+// CONSOLIDADOS DE TEMAS DO QUIZ
+import { QuizTheme } from '../types';
+
+export const DEFAULT_QUIZ_THEMES: QuizTheme[] = [
+  { id: 'todos', name: 'Todos os Temas', description: 'Perguntas combinadas de todos os temas do Quiz PremieRpet', icon: '🌟' },
+  { id: 'nutricao', name: 'Nutrição & Alimentação', description: 'Ingredientes nobres, digestibilidade e nutrição diária', icon: '🥩' },
+  { id: 'linha_premier', name: 'Linhas PremieRpet®', description: 'Seleção Natural, Ambientes Internos, Raças Específicas', icon: '🏆' },
+  { id: 'saude', name: 'Saúde & Cuidados Clínicos', description: 'Controle de obesidade, saúde renal e prevenções', icon: '🩺' },
+  { id: 'cuidados', name: 'Manejo & Transição Alimentar', description: 'Troca de ração, petiscos e hidratação', icon: '🐾' },
+];
+
+const QUIZ_THEMES_KEY = 'premier_quiz_themes_v1';
+
+export function getStoredQuizThemes(): QuizTheme[] {
+  try {
+    const data = localStorage.getItem(QUIZ_THEMES_KEY);
+    if (data) {
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.error('Error reading quiz themes from localStorage:', e);
+  }
+  return DEFAULT_QUIZ_THEMES;
+}
+
+export function saveStoredQuizThemes(themes: QuizTheme[]): void {
+  try {
+    localStorage.setItem(QUIZ_THEMES_KEY, JSON.stringify(themes));
+  } catch (e) {
+    console.error('Error saving quiz themes to localStorage:', e);
+  }
+}
+

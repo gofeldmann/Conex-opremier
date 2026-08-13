@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { PET_QUIZ_QUESTIONS } from '../data/quizQuestions';
-import { PetProfile, QuizQuestion, QuizCustomization, QuizBonusConfig } from '../types';
-import { DEFAULT_QUIZ_CUSTOMIZATION, DEFAULT_QUIZ_BONUS_CONFIG } from '../utils/storage';
+import { PetProfile, QuizQuestion, QuizCustomization, QuizBonusConfig, QuizTheme } from '../types';
+import { DEFAULT_QUIZ_CUSTOMIZATION, DEFAULT_QUIZ_BONUS_CONFIG, DEFAULT_QUIZ_THEMES, saveQuizParticipation, updateParticipationPhoto } from '../utils/storage';
 import {
   Award,
   CheckCircle2,
@@ -19,12 +19,15 @@ import {
   Image as ImageIcon,
   Heart,
   Trash2,
-  Star
+  Star,
+  Layers,
+  Filter
 } from 'lucide-react';
 
 interface QuizSectionProps {
   petProfile?: PetProfile;
   quizQuestions?: QuizQuestion[];
+  quizThemes?: QuizTheme[];
   quizCustomization?: QuizCustomization;
   quizBonusConfig?: QuizBonusConfig;
   onAddPoints?: (pts: number) => void;
@@ -34,11 +37,22 @@ interface QuizSectionProps {
 export const QuizSection: React.FC<QuizSectionProps> = ({
   petProfile,
   quizQuestions = PET_QUIZ_QUESTIONS,
+  quizThemes = DEFAULT_QUIZ_THEMES,
   quizCustomization = DEFAULT_QUIZ_CUSTOMIZATION,
   quizBonusConfig = DEFAULT_QUIZ_BONUS_CONFIG,
   onNavigateToChat,
 }) => {
-  const activeQuestions = quizQuestions && quizQuestions.length > 0 ? quizQuestions : PET_QUIZ_QUESTIONS;
+  const [selectedThemeId, setSelectedThemeId] = useState<string>('todos');
+
+  const allQuestions = quizQuestions && quizQuestions.length > 0 ? quizQuestions : PET_QUIZ_QUESTIONS;
+  const themesList = quizThemes && quizThemes.length > 0 ? quizThemes : DEFAULT_QUIZ_THEMES;
+
+  const filteredQuestions = selectedThemeId === 'todos'
+    ? allQuestions
+    : allQuestions.filter((q) => q.category === selectedThemeId);
+
+  const activeQuestions = filteredQuestions.length > 0 ? filteredQuestions : allQuestions;
+
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
@@ -46,10 +60,20 @@ export const QuizSection: React.FC<QuizSectionProps> = ({
   const [isQuizFinished, setIsQuizFinished] = useState(false);
   const [hasCopiedBonusCoupon, setHasCopiedBonusCoupon] = useState(false);
 
+  const handleSelectTheme = (themeId: string) => {
+    setSelectedThemeId(themeId);
+    setCurrentQuestionIndex(0);
+    setSelectedOptionId(null);
+    setIsAnswered(false);
+    setCorrectAnswersCount(0);
+    setIsQuizFinished(false);
+  };
+
   // Quiz Evaluation State (Required to unlock discount)
   const [hasEvaluatedQuiz, setHasEvaluatedQuiz] = useState(false);
   const [quizEvaluationRating, setQuizEvaluationRating] = useState<number | null>(null);
   const [quizEvaluationComment, setQuizEvaluationComment] = useState('');
+  const [generatedToken, setGeneratedToken] = useState<string | null>(null);
 
   // Momento PremieR Photo Upload State
   const [petPhotoUrl, setPetPhotoUrl] = useState<string | null>(null);
@@ -89,17 +113,7 @@ export const QuizSection: React.FC<QuizSectionProps> = ({
     setQuizEvaluationRating(null);
     setQuizEvaluationComment('');
     setPetPhotoUrl(null);
-  };
-
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPetPhotoUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
+    setGeneratedToken(null);
   };
 
   const minRequiredCorrect = quizBonusConfig.minScore || 1;
@@ -107,10 +121,40 @@ export const QuizSection: React.FC<QuizSectionProps> = ({
 
   const baseDiscount = quizBonusConfig.discountPercent || 5;
   const finalDiscount = petPhotoUrl ? baseDiscount + 5 : baseDiscount; // +5% Extra for Momento PremieR Photo!
-  const finalCouponCode = petPhotoUrl ? 'MOMENTOPREMIER10' : (quizBonusConfig.couponCode || 'PREMIER5');
+
+  const handleEvaluateAndUnlock = () => {
+    setHasEvaluatedQuiz(true);
+    const participation = saveQuizParticipation({
+      correctAnswers: correctAnswersCount,
+      totalQuestions: activeQuestions.length,
+      discountPercent: baseDiscount,
+      hasMomentoPremierPhoto: Boolean(petPhotoUrl),
+      petPhotoUrl: petPhotoUrl || undefined,
+      quizEvaluationRating: quizEvaluationRating || 5,
+      quizEvaluationComment: quizEvaluationComment.trim() || undefined,
+    });
+    setGeneratedToken(participation.id);
+  };
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result as string;
+        setPetPhotoUrl(dataUrl);
+        if (generatedToken) {
+          updateParticipationPhoto(generatedToken, dataUrl);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const displayCouponCode = generatedToken || quizBonusConfig.couponCode || 'PREMIER5';
 
   const handleCopyBonusCoupon = () => {
-    navigator.clipboard.writeText(finalCouponCode);
+    navigator.clipboard.writeText(displayCouponCode);
     setHasCopiedBonusCoupon(true);
     setTimeout(() => setHasCopiedBonusCoupon(false), 2500);
   };
@@ -158,6 +202,38 @@ export const QuizSection: React.FC<QuizSectionProps> = ({
             </div>
             <div className="text-[10px] text-blue-200 uppercase font-bold tracking-wider">Acertos</div>
           </div>
+        </div>
+      </div>
+
+      {/* Quiz Theme / Consolidado Selector */}
+      <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs space-y-2">
+        <div className="flex items-center justify-between text-xs font-black uppercase text-slate-500 tracking-wider">
+          <div className="flex items-center gap-1.5">
+            <Filter className="w-3.5 h-3.5 text-[#2532f5]" />
+            <span>Selecione o Tipo do Quiz (Tema):</span>
+          </div>
+          <span className="text-[10px] text-slate-400 font-bold lowercase">
+            {activeQuestions.length} {activeQuestions.length === 1 ? 'pergunta' : 'perguntas'}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+          {themesList.map((theme) => {
+            const isSelected = selectedThemeId === theme.id;
+            return (
+              <button
+                key={theme.id}
+                onClick={() => handleSelectTheme(theme.id)}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap shrink-0 border ${
+                  isSelected
+                    ? 'bg-[#2532f5] text-white border-[#2532f5] shadow-sm'
+                    : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                }`}
+              >
+                <span>{theme.icon || '📌'}</span>
+                <span>{theme.name}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -351,7 +427,7 @@ export const QuizSection: React.FC<QuizSectionProps> = ({
           <div className="pt-2">
             <button
               disabled={quizEvaluationRating === null}
-              onClick={() => setHasEvaluatedQuiz(true)}
+              onClick={handleEvaluateAndUnlock}
               className="w-full sm:w-auto px-8 py-3.5 bg-[#2532f5] hover:bg-[#1a27e0] disabled:opacity-40 text-white font-extrabold rounded-2xl text-xs shadow-lg transition flex items-center justify-center gap-2 mx-auto"
             >
               <Sparkles className="w-4 h-4 text-amber-300" />
@@ -475,10 +551,10 @@ export const QuizSection: React.FC<QuizSectionProps> = ({
             <div className="bg-white text-slate-900 p-3.5 rounded-2xl shadow-md flex items-center justify-between gap-2 border border-blue-200">
               <div>
                 <span className="text-[10px] font-bold text-slate-500 uppercase block">
-                  Cupom de Desconto Exclusivo ({finalDiscount}% OFF)
+                  Token Único do Cupom ({finalDiscount}% OFF)
                 </span>
                 <span className="font-mono font-black text-xl text-[#2532f5] tracking-wider">
-                  {finalCouponCode}
+                  {displayCouponCode}
                 </span>
               </div>
 
