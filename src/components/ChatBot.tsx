@@ -170,7 +170,7 @@ export const ChatBot: React.FC<ChatBotProps> = ({
         replyText = data.reply || 'Recebi sua mensagem! Como mais posso ajudar na alimentação e bem-estar do seu pet?';
       } else {
         const errData = await res.json().catch(() => null);
-        replyText = errData?.reply || errData?.error || 'Tive um breve imprevisto de conexão com o servidor. Como posso te ajudar com seu pet? 🐾';
+        replyText = errData?.reply || errData?.error || `Houve uma falha na resposta do servidor (Status ${res.status}: ${res.statusText || 'Erro'}). Verifique se a variável GEMINI_API_KEY está configurada no painel da Vercel e se foi feito o Redeploy. 🐾`;
       }
 
       const assistantMsg: ChatMessage = {
@@ -181,12 +181,12 @@ export const ChatBot: React.FC<ChatBotProps> = ({
       };
 
       setMessages((prev) => [...prev, assistantMsg]);
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error('Chat error:', err);
       const errorMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         sender: 'assistant',
-        text: 'Tive um probleminha de conexão temporário. Mas não se preocupe! Você pode navegar pela nossa aba de Linhas e Produtos ou usar a Calculadora para conferir as refeições do seu pet! 🐶🐱',
+        text: `Tive um probleminha de conexão com a API: ${err?.message || 'Falha de rede'}. Por favor, confirme se o projeto foi atualizado no GitHub e se foi feito o Redeploy na Vercel! 🐶🐱`,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMsg]);

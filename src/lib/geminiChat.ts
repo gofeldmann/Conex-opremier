@@ -1,28 +1,17 @@
-import { GoogleGenAI } from '@google/genai';
-
 export async function generateChatReply(body: {
   messages?: any[];
   petProfile?: any;
   contextProduct?: string;
   customSubfamilies?: any[];
 }): Promise<{ reply: string; suggestedProducts?: string[] }> {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = (process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '').trim();
 
   if (!apiKey) {
     return {
-      reply: 'Oi, eu sou a Patrícia! Sua guia médica-veterinária da Infos PremieRpet. Para ativar minhas respostas inteligentes em tempo real com IA na Vercel, adicione a variável de ambiente GEMINI_API_KEY no painel da Vercel (Project Settings > Environment Variables). Enquanto isso, posso te ajudar a explorar nossos produtos, calculadora de porções e quiz! 🐶🐱',
+      reply: 'Oi, eu sou a Patrícia! Sua guia médica-veterinária da Infos PremieRpet. A chave GEMINI_API_KEY ainda não foi encontrada no servidor. Adicione a variável GEMINI_API_KEY no painel da Vercel (Project Settings > Environment Variables) e faça o Redeploy da aplicação. 🐶🐱',
       suggestedProducts: ['premier-nattu', 'premier-formula']
     };
   }
-
-  const ai = new GoogleGenAI({
-    apiKey,
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build',
-      },
-    },
-  });
 
   const { messages, petProfile, contextProduct, customSubfamilies } = body;
 
@@ -83,23 +72,37 @@ ${petProfile.specialNeeds ? `- Necessidade especial: ${petProfile.specialNeeds}`
     ? messages.map((msg: { sender: string; text: string }) => `${msg.sender === 'user' ? 'Tutor' : 'Dra. Nutri Premier'}: ${msg.text}`).join('\n')
     : 'Tutor: Olá, gostaria de tirar dúvidas sobre a alimentação do meu pet.';
 
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.6-flash',
-      contents: promptHistory,
-      config: {
-        systemInstruction,
-        temperature: 0.7,
-      },
-    });
+  const modelsToTry = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash'];
+  let lastError = '';
 
-    const replyText = response.text || 'Desculpe, tive um breve imprevisto ao responder. Como posso ajudar com o seu pet agora? 🐾';
-    return { reply: replyText };
-  } catch (err: any) {
-    console.error('Gemini API Error:', err);
-    return {
-      reply: 'Oi, eu sou a Patrícia! A chave da API do Gemini informada na Vercel parece ser inválida ou expirou. Por favor, obtenha uma chave válida no Google AI Studio (aistudio.google.com) que começa com "AIzaSy..." e atualize a variável GEMINI_API_KEY no painel da Vercel. 🐶🐱',
-      suggestedProducts: ['premier-nattu', 'premier-formula']
-    };
+  for (const model of modelsToTry) {
+    try {
+      const restUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const restResponse = await fetch(restUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemInstruction }] },
+          contents: [{ role: 'user', parts: [{ text: promptHistory }] }]
+        })
+      });
+
+      const data: any = await restResponse.json();
+      if (restResponse.ok && data.candidates?.[0]?.content?.parts?.[0]?.text) {
+        return { reply: data.candidates[0].content.parts[0].text };
+      }
+
+      if (data?.error?.message) {
+        lastError = data.error.message;
+        console.warn(`Erro no modelo ${model}:`, lastError);
+      }
+    } catch (fetchErr: any) {
+      lastError = fetchErr?.message || 'Falha de requisição';
+    }
   }
+
+  return {
+    reply: `Oi! A Dra. Patrícia teve uma resposta da API do Google: ${lastError || 'Não foi possível gerar a resposta'}. Por favor, verifique a chave GEMINI_API_KEY no painel da Vercel. 🐾`,
+    suggestedProducts: ['premier-nattu', 'premier-formula']
+  };
 }
