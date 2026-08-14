@@ -1,3 +1,5 @@
+import { GoogleGenAI } from '@google/genai';
+
 export async function generateChatReply(body: {
   messages?: any[];
   petProfile?: any;
@@ -72,12 +74,42 @@ ${petProfile.specialNeeds ? `- Necessidade especial: ${petProfile.specialNeeds}`
     ? messages.map((msg: { sender: string; text: string }) => `${msg.sender === 'user' ? 'Tutor' : 'Dra. Nutri Premier'}: ${msg.text}`).join('\n')
     : 'Tutor: Olá, gostaria de tirar dúvidas sobre a alimentação do meu pet.';
 
-  const modelsToTry = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash'];
-  let lastError = '';
+  // Attempt with official @google/genai SDK using modern active models
+  const models = ['gemini-3.7-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
 
-  for (const model of modelsToTry) {
+  for (const modelName of models) {
     try {
-      const restUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          },
+        },
+      });
+
+      const response = await ai.models.generateContent({
+        model: modelName,
+        contents: promptHistory,
+        config: {
+          systemInstruction,
+          temperature: 0.7,
+        },
+      });
+
+      if (response.text) {
+        return { reply: response.text };
+      }
+    } catch (sdkErr: any) {
+      console.warn(`SDK attempt for ${modelName} failed:`, sdkErr?.message || sdkErr);
+    }
+  }
+
+  // Fallback REST direct call with modern active models
+  let lastRestError = '';
+  for (const modelName of models) {
+    try {
+      const restUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
       const restResponse = await fetch(restUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -93,16 +125,15 @@ ${petProfile.specialNeeds ? `- Necessidade especial: ${petProfile.specialNeeds}`
       }
 
       if (data?.error?.message) {
-        lastError = data.error.message;
-        console.warn(`Erro no modelo ${model}:`, lastError);
+        lastRestError = data.error.message;
       }
-    } catch (fetchErr: any) {
-      lastError = fetchErr?.message || 'Falha de requisição';
+    } catch (restErr: any) {
+      lastRestError = restErr?.message || 'Falha de requisição';
     }
   }
 
   return {
-    reply: `Oi! A Dra. Patrícia teve uma resposta da API do Google: ${lastError || 'Não foi possível gerar a resposta'}. Por favor, verifique a chave GEMINI_API_KEY no painel da Vercel. 🐾`,
+    reply: `Oi! A Dra. Patrícia recebeu uma mensagem do serviço: ${lastRestError || 'Não foi possível conectar com o modelo'}. Por favor, verifique se a chave GEMINI_API_KEY no painel da Vercel está correta. 🐾`,
     suggestedProducts: ['premier-nattu', 'premier-formula']
   };
 }
