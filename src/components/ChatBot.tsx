@@ -164,12 +164,19 @@ export const ChatBot: React.FC<ChatBotProps> = ({
         }),
       });
 
-      const data = await res.json();
+      let replyText = '';
+      if (res.ok) {
+        const data = await res.json();
+        replyText = data.reply || 'Recebi sua mensagem! Como mais posso ajudar na alimentação e bem-estar do seu pet?';
+      } else {
+        const errData = await res.json().catch(() => null);
+        replyText = errData?.reply || errData?.error || 'Tive um breve imprevisto de conexão com o servidor. Como posso te ajudar com seu pet? 🐾';
+      }
 
       const assistantMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         sender: 'assistant',
-        text: data.reply || 'Recebi sua mensagem! Como mais posso ajudar na alimentação e bem-estar do seu pet?',
+        text: replyText,
         timestamp: new Date(),
       };
 
