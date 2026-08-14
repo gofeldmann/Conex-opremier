@@ -294,7 +294,6 @@ export const ChatBot: React.FC<ChatBotProps> = ({
 
             {/* Centered Description */}
             <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed max-w-md mx-auto mb-8">
-              Tire dúvidas sobre as linhas PremieR® e a alimentação do seu pet. Sou a guia veterinária virtual da Infos PremieRpet e não substituo a consulta presencial.
             </p>
 
             {/* Quick Prompt Pills Stack */}
@@ -362,8 +361,7 @@ export const ChatBot: React.FC<ChatBotProps> = ({
                 </div>
 
                 {msg.sender === 'assistant' && onNavigateToQuiz && (
-                  <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
-                    <span className="text-[10px] text-slate-400 font-medium hidden sm:inline">Dúvida tirada?</span>
+                  <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
                     <button
                       onClick={onNavigateToQuiz}
                       className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 font-extrabold text-[11px] rounded-full shadow-2xs transition hover:scale-105"
@@ -429,7 +427,7 @@ export const ChatBot: React.FC<ChatBotProps> = ({
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Digite sua dúvida sobre o seu pet..."
+            placeholder=""
             className="flex-1 px-5 py-3 bg-slate-50 border border-slate-200 rounded-full focus:bg-white focus:border-[#2532f5] focus:ring-2 focus:ring-[#2532f5]/20 outline-none text-slate-800 text-sm"
           />
 

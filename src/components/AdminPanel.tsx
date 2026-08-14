@@ -80,7 +80,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   quizBonusConfig,
   onUpdateQuizBonusConfig,
 }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
   const [pinInput, setPinInput] = useState<string>('');
   const [pinError, setPinError] = useState<string>('');
   const [activeAdminTab, setActiveAdminTab] = useState<'quiz' | 'customization' | 'participations' | 'settings'>('participations');
@@ -125,29 +125,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setParticipations(getStoredParticipations());
   };
 
-  // Authentication Handler
+  // Authentication Handler (No-op now)
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    const storedPin = getAdminPin();
-    if (pinInput.trim() === storedPin) {
-      setIsAuthenticated(true);
-      setPinError('');
-      refreshParticipationsList();
-    } else {
-      setPinError('PIN incorreto. Tente novamente.');
-    }
   };
 
   const handleChangePin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPin.trim().length >= 4) {
-      saveAdminPin(newPin.trim());
-      setPinSuccessMsg('PIN do Painel Admin alterado com sucesso!');
-      setNewPin('');
-      setTimeout(() => setPinSuccessMsg(''), 3000);
-    } else {
-      alert('O PIN deve ter pelo menos 4 caracteres.');
-    }
+    alert('Funcionalidade desativada.');
   };
 
   // Image File Upload Helper
@@ -406,55 +391,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const activeCount = participations.filter((p) => p.status === 'active').length;
   const validatedCount = participations.filter((p) => p.status === 'validated').length;
 
-  // UNAUTHENTICATED PIN SCREEN
-  if (!isAuthenticated) {
-    return (
-      <div className="max-w-md mx-auto p-6 sm:p-8 my-10 bg-white rounded-[32px] shadow-xl border border-slate-100 text-left space-y-4">
-        <div className="w-12 h-12 rounded-full bg-[#2532f5] text-white flex items-center justify-center mb-2 shadow-sm">
-          <Lock className="w-6 h-6 text-white" />
-        </div>
-
-        <div>
-          <h2 className="text-2xl sm:text-3xl font-black text-[#2532f5] tracking-tight">
-            Painel de Conteúdo
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium mt-1">
-            Digite a senha para gerenciar perguntas, personalizar o quiz e validar cupons do Momento PremieRpet.
-          </p>
-        </div>
-
-        <form onSubmit={handleLogin} className="space-y-4 pt-2">
-          <div>
-            <label className="block text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">
-              Senha PIN
-            </label>
-            <input
-              type="password"
-              maxLength={8}
-              placeholder="Digite a senha (Padrão: 1234)"
-              value={pinInput}
-              onChange={(e) => setPinInput(e.target.value)}
-              className="w-full text-base font-semibold px-5 py-3 rounded-full border border-[#2532f5] focus:ring-2 focus:ring-[#2532f5]/20 outline-none text-slate-900"
-            />
-            {pinError && <p className="text-xs text-rose-600 font-bold mt-1.5 ml-2">{pinError}</p>}
-          </div>
-
-          <button
-            type="submit"
-            className="w-full py-3.5 bg-[#2532f5] hover:bg-[#1a27e0] text-white font-extrabold rounded-full shadow-md transition flex items-center justify-center gap-2 text-sm"
-          >
-            <Unlock className="w-4 h-4 text-white" />
-            Entrar
-          </button>
-        </form>
-
-        <p className="text-[11px] text-slate-400 text-center pt-2">
-          Senha padrão inicial: <strong className="text-slate-600 font-bold">1234</strong>
-        </p>
-      </div>
-    );
-  }
-
   // AUTHENTICATED ADMIN DASHBOARD
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
@@ -468,14 +404,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             Gestão de Quiz, Validação de Tokens & Momento PremieRpet
           </p>
         </div>
-
-        <button
-          onClick={() => setIsAuthenticated(false)}
-          className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-full px-5 py-2 font-bold text-xs flex items-center gap-1.5 shadow-2xs transition shrink-0"
-        >
-          <Lock className="w-3.5 h-3.5 text-slate-500" />
-          Sair
-        </button>
       </div>
 
       {/* Admin Tab Switcher Pill Bar */}

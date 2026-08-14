@@ -164,13 +164,6 @@ export default function App() {
 
         {/* Footer Admin Link */}
         <footer className="text-center py-4 text-xs text-slate-400">
-          <button
-            onClick={() => navigateTo('/admin')}
-            className="hover:text-[#2532f5] font-semibold transition inline-flex items-center gap-1 opacity-70 hover:opacity-100"
-          >
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Acesso Administrativo (/admin)</span>
-          </button>
         </footer>
       </div>
     </MobileFrameWrapper>
