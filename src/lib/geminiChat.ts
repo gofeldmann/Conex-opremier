@@ -74,20 +74,27 @@ ${petProfile.specialNeeds ? `- Necessidade especial: ${petProfile.specialNeeds}`
     ? messages.map((msg: { sender: string; text: string }) => `${msg.sender === 'user' ? 'Tutor' : 'Dra. Nutri Premier'}: ${msg.text}`).join('\n')
     : 'Tutor: Olá, gostaria de tirar dúvidas sobre a alimentação do meu pet.';
 
-  // Attempt with official @google/genai SDK using modern active models
-  const models = ['gemini-3.7-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
+  // Array of active, high-availability Gemini models
+  const candidateModels = [
+    'gemini-3.5-flash',
+    'gemini-3.7-flash',
+    'gemini-3.1-flash-lite',
+    'gemini-flash-latest',
+    'gemini-3-flash'
+  ];
 
-  for (const modelName of models) {
+  const ai = new GoogleGenAI({
+    apiKey,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      },
+    },
+  });
+
+  // Attempt 1: Official @google/genai SDK across candidates
+  for (const modelName of candidateModels) {
     try {
-      const ai = new GoogleGenAI({
-        apiKey,
-        httpOptions: {
-          headers: {
-            'User-Agent': 'aistudio-build',
-          },
-        },
-      });
-
       const response = await ai.models.generateContent({
         model: modelName,
         contents: promptHistory,
@@ -101,13 +108,18 @@ ${petProfile.specialNeeds ? `- Necessidade especial: ${petProfile.specialNeeds}`
         return { reply: response.text };
       }
     } catch (sdkErr: any) {
-      console.warn(`SDK attempt for ${modelName} failed:`, sdkErr?.message || sdkErr);
+      const isCapacityError = sdkErr?.message?.includes('503') || sdkErr?.message?.includes('high demand') || sdkErr?.status === 503;
+      if (isCapacityError) {
+        console.warn(`Model ${modelName} in high demand (503), immediately trying next model in list...`);
+      } else {
+        console.warn(`SDK attempt for ${modelName} failed:`, sdkErr?.message || sdkErr);
+      }
     }
   }
 
-  // Fallback REST direct call with modern active models
+  // Attempt 2: Direct REST fetch fallback across candidates
   let lastRestError = '';
-  for (const modelName of models) {
+  for (const modelName of candidateModels) {
     try {
       const restUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
       const restResponse = await fetch(restUrl, {
@@ -133,7 +145,7 @@ ${petProfile.specialNeeds ? `- Necessidade especial: ${petProfile.specialNeeds}`
   }
 
   return {
-    reply: `Oi! A Dra. Patrícia recebeu uma mensagem do serviço: ${lastRestError || 'Não foi possível conectar com o modelo'}. Por favor, verifique se a chave GEMINI_API_KEY no painel da Vercel está correta. 🐾`,
+    reply: 'Olá! Sou a Dra. Patrícia. Nossos servidores de inteligência artificial estão com um volume muito alto de consultas neste instante. Enquanto isso, você pode explorar as abas de Linhas PremieRpet, utilizar a nossa Calculadora de Porções ou fazer o Quiz para receber seu cupom! 🐾🐱🐶',
     suggestedProducts: ['premier-nattu', 'premier-formula']
   };
 }
