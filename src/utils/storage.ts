@@ -1,49 +1,17 @@
 import { collection, doc, getDoc, setDoc, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { ProductSubfamily, QuizQuestion, ChatCustomization, QuizCustomization, SurveyConfig, QuizBonusConfig, QuizParticipation } from '../types';
+import { ProductSubfamily, QuizQuestion, ChatCustomization, QuizCustomization, SurveyConfig, QuizBonusConfig, QuizParticipation, QuizTheme } from '../types';
 import { PREMIER_SUBFAMILIES } from '../data/premierProducts';
 import { PET_QUIZ_QUESTIONS } from '../data/quizQuestions';
 import { DEFAULT_PATRICIA_AVATAR, DEFAULT_QUIZ_BANNER } from './defaultImages';
 
 // Helper to interact with Firestore
 const SUBFAMILIES_REF = doc(db, 'config', 'subfamilies');
-
-// Function to clear old localStorage data
-function clearLegacyLocalStorage() {
-  const keys = [
-    'premier_subfamilies_v1',
-    'premier_quiz_questions_v1',
-    'premier_admin_pin_v1',
-    'premier_chat_custom_v1',
-    'premier_quiz_custom_v1',
-    'premier_survey_config_v1',
-    'premier_quiz_bonus_config_v1'
-  ];
-  keys.forEach(key => localStorage.removeItem(key));
-}
-
-export async function getStoredSubfamilies(): Promise<ProductSubfamily[]> {
-  // Ensure legacy data is cleared on first load
-  clearLegacyLocalStorage();
-  
-  try {
-    const docSnap = await getDoc(SUBFAMILIES_REF);
-    if (docSnap.exists()) {
-      return docSnap.data().subfamilies as ProductSubfamily[];
-    }
-  } catch (e) {
-    console.error('Error reading subfamilies from Firestore:', e);
-  }
-  return PREMIER_SUBFAMILIES;
-}
-
-export async function saveStoredSubfamilies(subfamilies: ProductSubfamily[]): Promise<void> {
-  try {
-    await setDoc(SUBFAMILIES_REF, { subfamilies });
-  } catch (e) {
-    console.error('Error saving subfamilies to Firestore:', e);
-  }
-}
+const CHAT_CUSTOM_REF = doc(db, 'config', 'chatCustomization');
+const QUIZ_CUSTOM_REF = doc(db, 'config', 'quizCustomization');
+const SURVEY_CONFIG_REF = doc(db, 'config', 'surveyConfig');
+const QUIZ_BONUS_REF = doc(db, 'config', 'quizBonusConfig');
+const QUIZ_THEMES_REF = doc(db, 'config', 'quizThemes');
 
 const SUBFAMILIES_KEY = 'premier_subfamilies_v1';
 const QUIZ_QUESTIONS_KEY = 'premier_quiz_questions_v1';
@@ -53,6 +21,7 @@ const QUIZ_CUSTOM_KEY = 'premier_quiz_custom_v1';
 const SURVEY_CONFIG_KEY = 'premier_survey_config_v1';
 const QUIZ_BONUS_CONFIG_KEY = 'premier_quiz_bonus_config_v1';
 
+// DEFAULT CONSTANTS
 export const DEFAULT_CHAT_CUSTOMIZATION: ChatCustomization = {
   title: 'Conexão PremieR',
   subtitle: 'Fale com a Dra. Patrícia Alves, sua guia médica-veterinária especialista em nutrição',
@@ -81,12 +50,72 @@ export const DEFAULT_QUIZ_BONUS_CONFIG: QuizBonusConfig = {
   rewardMessage: 'Parabéns! Você atingiu o número mínimo de acertos e conquistou seu cupom de desconto!',
 };
 
-export function resetSubfamiliesToDefault(): ProductSubfamily[] {
+export const DEFAULT_QUIZ_THEMES: QuizTheme[] = [
+  { id: 'todos', name: 'Todos os Temas', description: 'Perguntas combinadas de todos os temas do Quiz PremieRpet', icon: '🌟' },
+  { id: 'nutricao', name: 'Nutrição & Alimentação', description: 'Ingredientes nobres, digestibilidade e nutrição diária', icon: '🥩' },
+  { id: 'linha_premier', name: 'Linhas PremieRpet®', description: 'Seleção Natural, Ambientes Internos, Raças Específicas', icon: '🏆' },
+  { id: 'saude', name: 'Saúde & Cuidados Clínicos', description: 'Controle de obesidade, saúde renal e prevenções', icon: '🩺' },
+  { id: 'cuidados', name: 'Manejo & Transição Alimentar', description: 'Troca de ração, petiscos e hidratação', icon: '🐾' },
+];
+
+// Function to clear old localStorage data
+export function clearLegacyLocalStorage() {
+  const keys = [
+    'premier_subfamilies_v1',
+    'premier_quiz_questions_v1',
+    'premier_admin_pin_v1',
+    'premier_chat_custom_v1',
+    'premier_quiz_custom_v1',
+    'premier_survey_config_v1',
+    'premier_quiz_bonus_config_v1',
+    'premier_quiz_themes_v1',
+    'premier_quiz_participations_v1'
+  ];
+  keys.forEach(key => localStorage.removeItem(key));
+}
+
+// Seed Function
+export async function seedFirestore() {
+    const refs = [SUBFAMILIES_REF, CHAT_CUSTOM_REF, QUIZ_CUSTOM_REF, SURVEY_CONFIG_REF, QUIZ_BONUS_REF, QUIZ_THEMES_REF];
+    const data = [
+        { subfamilies: PREMIER_SUBFAMILIES },
+        DEFAULT_CHAT_CUSTOMIZATION,
+        DEFAULT_QUIZ_CUSTOMIZATION,
+        DEFAULT_SURVEY_CONFIG,
+        DEFAULT_QUIZ_BONUS_CONFIG,
+        { themes: DEFAULT_QUIZ_THEMES }
+    ];
+
+    for (let i = 0; i < refs.length; i++) {
+        const docSnap = await getDoc(refs[i]);
+        if (!docSnap.exists()) {
+            await setDoc(refs[i], data[i]);
+        }
+    }
+}
+
+export async function getStoredSubfamilies(): Promise<ProductSubfamily[]> {
   try {
-    localStorage.removeItem(SUBFAMILIES_KEY);
+    const docSnap = await getDoc(SUBFAMILIES_REF);
+    if (docSnap.exists()) {
+      return docSnap.data().subfamilies as ProductSubfamily[];
+    }
   } catch (e) {
-    console.error('Error resetting subfamilies:', e);
+    console.error('Error reading subfamilies from Firestore:', e);
   }
+  return PREMIER_SUBFAMILIES;
+}
+
+export async function saveStoredSubfamilies(subfamilies: ProductSubfamily[]): Promise<void> {
+  try {
+    await setDoc(SUBFAMILIES_REF, { subfamilies });
+  } catch (e) {
+    console.error('Error saving subfamilies to Firestore:', e);
+  }
+}
+
+
+export function resetSubfamiliesToDefault(): ProductSubfamily[] {
   return PREMIER_SUBFAMILIES;
 }
 
@@ -318,15 +347,6 @@ export function deleteParticipation(id: string): void {
 }
 
 // CONSOLIDADOS DE TEMAS DO QUIZ
-import { QuizTheme } from '../types';
-
-export const DEFAULT_QUIZ_THEMES: QuizTheme[] = [
-  { id: 'todos', name: 'Todos os Temas', description: 'Perguntas combinadas de todos os temas do Quiz PremieRpet', icon: '🌟' },
-  { id: 'nutricao', name: 'Nutrição & Alimentação', description: 'Ingredientes nobres, digestibilidade e nutrição diária', icon: '🥩' },
-  { id: 'linha_premier', name: 'Linhas PremieRpet®', description: 'Seleção Natural, Ambientes Internos, Raças Específicas', icon: '🏆' },
-  { id: 'saude', name: 'Saúde & Cuidados Clínicos', description: 'Controle de obesidade, saúde renal e prevenções', icon: '🩺' },
-  { id: 'cuidados', name: 'Manejo & Transição Alimentar', description: 'Troca de ração, petiscos e hidratação', icon: '🐾' },
-];
 
 const QUIZ_THEMES_KEY = 'premier_quiz_themes_v1';
 

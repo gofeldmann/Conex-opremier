@@ -14,6 +14,8 @@ import {
   getSurveyConfig,
   getQuizBonusConfig,
   getStoredQuizThemes,
+  seedFirestore,
+  clearLegacyLocalStorage,
 } from './utils/storage';
 import { PetProfile, ProductSubfamily, QuizQuestion, ChatCustomization, QuizCustomization, SurveyConfig, QuizBonusConfig, QuizTheme } from './types';
 
@@ -36,6 +38,12 @@ export default function App() {
 
   // Sync route changes with browser history
   useEffect(() => {
+    async function init() {
+        clearLegacyLocalStorage();
+        await seedFirestore();
+    }
+    init();
+
     const handleLocationChange = () => {
       setRoutePath(getInitialPath());
     };
