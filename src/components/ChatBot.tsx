@@ -46,7 +46,7 @@ export const ChatBot: React.FC<ChatBotProps> = ({
     {
       id: 'welcome-1',
       sender: 'assistant',
-      text: chatCustomization.welcomeMessage || `Olá, tutor(a)! 👋 Sou a Patrícia, médica-veterinária e a voz oficial da Infos PremieRpet! Estou aqui para acolher você e tirar qualquer dúvida sobre a nutrição e saúde do seu pet.`,
+      text: chatCustomization.welcomeMessage || `Olá, tutor(a)! 👋 Sou a Patrícia, médica-veterinária e a voz oficial da Conexão PremieR! Estou aqui para acolher você e tirar qualquer dúvida sobre a nutrição e saúde do seu pet.`,
       timestamp: new Date(),
       suggestedQuestions: [
         'Qual ração PremieRpet é ideal para o meu pet?',

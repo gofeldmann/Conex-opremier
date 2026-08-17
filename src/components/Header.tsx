@@ -41,7 +41,7 @@ export const Header: React.FC<HeaderProps> = ({
 
             <div>
               <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-tight">
-                Infos PremieRpet
+                Conexão PremieR
               </h1>
               <p className="text-xs sm:text-sm text-blue-100/90 font-medium mt-0.5">
                 Dúvidas sobre a alimentação do seu pet
@@ -103,7 +103,7 @@ export const Header: React.FC<HeaderProps> = ({
                     SCAN ME
                   </div>
                   <div className="col-span-5 bg-blue-500 text-white p-1 font-bold text-[8px] rounded-xs text-center">
-                    INFOS PREMIERPET
+                    CONEXÃO PREMIER
                   </div>
                 </div>
               </div>

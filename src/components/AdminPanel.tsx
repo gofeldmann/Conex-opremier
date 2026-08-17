@@ -882,7 +882,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       required
                       value={chatForm.title}
                       onChange={(e) => setChatForm({ ...chatForm, title: e.target.value })}
-                      placeholder="Ex: Infos PremieRpet"
+                      placeholder="Ex: Conexão PremieR"
                       className="w-full p-2.5 rounded-xl border border-slate-300 font-bold text-slate-900 outline-none focus:border-[#2532f5]"
                     />
                   </div>

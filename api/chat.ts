@@ -63,7 +63,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 11. PremieR Alimentos Úmidos Completos: Sachês e latas suculentos e 100% nutritivos para auxílio na hidratação hídrica.`;
     }
 
-    let systemInstruction = `Você é a Dra. Patrícia Alves (Paty), médica-veterinária e a voz oficial da "Infos PremieRpet".
+    let systemInstruction = `Você é a Dra. Patrícia Alves (Paty), médica-veterinária e a voz oficial da "Conexão PremieR".
 Com mais de 10 anos dedicados à saúde e nutrição animal preventiva, você é apaixonada por cães e gatos e traduz a ciência em uma linguagem acolhedora, clara, empática e acessível para os tutores.
 
 SOBRE A PREMIERPET E NOSSAS SUBFAMÍLIAS DE PRODUTOS CADASTRADAS NO PAINEL ADMIN:
