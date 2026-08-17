@@ -26,7 +26,7 @@ export const DEFAULT_CHAT_CUSTOMIZATION: ChatCustomization = {
   title: 'Conexão PremieR',
   subtitle: 'Fale com a Dra. Patrícia Alves, sua guia médica-veterinária especialista em nutrição',
   agentName: 'Dra. Patrícia Alves',
-  avatarUrl: '/src/assets/images/dra_patricia_avatar_1786539257763.jpg',
+  avatarUrl: DEFAULT_PATRICIA_AVATAR,
   welcomeMessage: 'Olá! Eu sou a Patrícia, médica-veterinária e a voz da Conexão PremieR. Como posso te ajudar a cuidar ainda melhor da saúde e alimentação do seu pet hoje? 🐶🐱',
 };
 
