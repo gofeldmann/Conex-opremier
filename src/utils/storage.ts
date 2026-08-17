@@ -1,7 +1,32 @@
+import { collection, doc, getDoc, setDoc, getDocs } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 import { ProductSubfamily, QuizQuestion, ChatCustomization, QuizCustomization, SurveyConfig, QuizBonusConfig, QuizParticipation } from '../types';
 import { PREMIER_SUBFAMILIES } from '../data/premierProducts';
 import { PET_QUIZ_QUESTIONS } from '../data/quizQuestions';
 import { DEFAULT_PATRICIA_AVATAR, DEFAULT_QUIZ_BANNER } from './defaultImages';
+
+// Helper to interact with Firestore
+const SUBFAMILIES_REF = doc(db, 'config', 'subfamilies');
+
+export async function getStoredSubfamilies(): Promise<ProductSubfamily[]> {
+  try {
+    const docSnap = await getDoc(SUBFAMILIES_REF);
+    if (docSnap.exists()) {
+      return docSnap.data().subfamilies as ProductSubfamily[];
+    }
+  } catch (e) {
+    console.error('Error reading subfamilies from Firestore:', e);
+  }
+  return PREMIER_SUBFAMILIES;
+}
+
+export async function saveStoredSubfamilies(subfamilies: ProductSubfamily[]): Promise<void> {
+  try {
+    await setDoc(SUBFAMILIES_REF, { subfamilies });
+  } catch (e) {
+    console.error('Error saving subfamilies to Firestore:', e);
+  }
+}
 
 const SUBFAMILIES_KEY = 'premier_subfamilies_v1';
 const QUIZ_QUESTIONS_KEY = 'premier_quiz_questions_v1';
@@ -12,15 +37,15 @@ const SURVEY_CONFIG_KEY = 'premier_survey_config_v1';
 const QUIZ_BONUS_CONFIG_KEY = 'premier_quiz_bonus_config_v1';
 
 export const DEFAULT_CHAT_CUSTOMIZATION: ChatCustomization = {
-  title: 'Infos PremieRpet',
+  title: 'Conexão PremieR',
   subtitle: 'Fale com a Dra. Patrícia Alves, sua guia médica-veterinária especialista em nutrição',
   agentName: 'Dra. Patrícia Alves (Paty)',
   avatarUrl: DEFAULT_PATRICIA_AVATAR,
-  welcomeMessage: 'Olá! Eu sou a Patrícia, médica-veterinária e a voz da Infos PremieRpet. Como posso te ajudar a cuidar ainda melhor da saúde e alimentação do seu pet hoje? 🐶🐱',
+  welcomeMessage: 'Olá! Eu sou a Patrícia, médica-veterinária e a voz da Conexão PremieR. Como posso te ajudar a cuidar ainda melhor da saúde e alimentação do seu pet hoje? 🐶🐱',
 };
 
 export const DEFAULT_QUIZ_CUSTOMIZATION: QuizCustomization = {
-  title: 'Quiz Desafio Infos PremieRpet',
+  title: 'Quiz Desafio Conexão PremieR',
   subtitle: 'Aprenda sobre nutrição de cães e gatos, teste seus conhecimentos e conquiste cupons de desconto exclusivos!',
   bannerUrl: DEFAULT_QUIZ_BANNER,
 };
@@ -28,7 +53,7 @@ export const DEFAULT_QUIZ_CUSTOMIZATION: QuizCustomization = {
 export const DEFAULT_SURVEY_CONFIG: SurveyConfig = {
   enabled: true,
   discountPercent: 10,
-  couponCode: 'INFOSPREMIER10',
+  couponCode: 'CONEXAOPREMIER10',
   thankYouMessage: 'Muito obrigado por avaliar nosso atendimento com a Dra. Patrícia! Use o cupom abaixo e ganhe desconto especial na sua próxima compra:',
 };
 
@@ -38,29 +63,6 @@ export const DEFAULT_QUIZ_BONUS_CONFIG: QuizBonusConfig = {
   couponCode: 'PREMIER5',
   rewardMessage: 'Parabéns! Você atingiu o número mínimo de acertos e conquistou seu cupom de desconto!',
 };
-
-export function getStoredSubfamilies(): ProductSubfamily[] {
-  try {
-    const data = localStorage.getItem(SUBFAMILIES_KEY);
-    if (data) {
-      const parsed = JSON.parse(data);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
-      }
-    }
-  } catch (e) {
-    console.error('Error reading subfamilies from localStorage:', e);
-  }
-  return PREMIER_SUBFAMILIES;
-}
-
-export function saveStoredSubfamilies(subfamilies: ProductSubfamily[]): void {
-  try {
-    localStorage.setItem(SUBFAMILIES_KEY, JSON.stringify(subfamilies));
-  } catch (e) {
-    console.error('Error saving subfamilies to localStorage:', e);
-  }
-}
 
 export function resetSubfamiliesToDefault(): ProductSubfamily[] {
   try {
