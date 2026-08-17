@@ -8,7 +8,24 @@ import { DEFAULT_PATRICIA_AVATAR, DEFAULT_QUIZ_BANNER } from './defaultImages';
 // Helper to interact with Firestore
 const SUBFAMILIES_REF = doc(db, 'config', 'subfamilies');
 
+// Function to clear old localStorage data
+function clearLegacyLocalStorage() {
+  const keys = [
+    'premier_subfamilies_v1',
+    'premier_quiz_questions_v1',
+    'premier_admin_pin_v1',
+    'premier_chat_custom_v1',
+    'premier_quiz_custom_v1',
+    'premier_survey_config_v1',
+    'premier_quiz_bonus_config_v1'
+  ];
+  keys.forEach(key => localStorage.removeItem(key));
+}
+
 export async function getStoredSubfamilies(): Promise<ProductSubfamily[]> {
+  // Ensure legacy data is cleared on first load
+  clearLegacyLocalStorage();
+  
   try {
     const docSnap = await getDoc(SUBFAMILIES_REF);
     if (docSnap.exists()) {
